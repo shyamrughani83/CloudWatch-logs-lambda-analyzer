@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  cloudwatch-logs-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cloudwatch-logs-analyzer:latest
+    container_name: cloudwatch-logs-analyzer
+    ports:
+      - "8501:8501"
+    volumes:
+      - ~/.aws:/home/appuser/.aws:ro  # Mount AWS credentials (read-only)
+      - logs_volume:/app/logs          # Use named volume for logs
+    environment:
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_SDK_LOAD_CONFIG=1          # Enable loading config from ~/.aws/config
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true         # Prevent privilege escalation
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  logs_volume:
+    driver: local
