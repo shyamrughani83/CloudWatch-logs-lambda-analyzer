@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional, Union, Tuple
 import datetime
 import time
 import botocore.exceptions
+from utils.logger import get_logger
 
 def get_aws_profiles() -> List[str]:
     """
@@ -43,6 +44,7 @@ class CloudWatchLogsClient:
         """
         self.region = region_name or os.environ.get('AWS_REGION', 'us-east-1')
         self.profile = profile_name
+        self.logger = get_logger("aws_client")
         
         session = boto3.Session(profile_name=profile_name, region_name=self.region)
         self.logs_client = session.client('logs')
