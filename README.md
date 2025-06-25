@@ -1,4 +1,4 @@
-# CloudWatch Logs Analyzer
+# CloudWatch-logs-Lambda Analyzer
 
 A powerful tool for analyzing AWS CloudWatch logs with advanced visualization and insights built with Amazon Q CLI.
 Get it for [free](https://community.aws/builderid?trk=529c4ce9-0395-4c42-915a-d70bf060ef3c&sc_channel=el)
