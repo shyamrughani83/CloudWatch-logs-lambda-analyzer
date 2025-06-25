@@ -314,11 +314,12 @@ def main():
         except Exception as e:
             app_logger.warning(f"Failed to load custom CSS: {str(e)}")
         
-        # Application header with AWS styling
+        # Application header with custom styling
         st.markdown("""
         <div class="main-header">
             <h1>📊 CloudWatch Logs & Lambda Function Analyzer</h1>
             <p>Analyze AWS CloudWatch logs and manage Lambda functions to identify performance patterns, test functions, and optimize resources.</p>
+            <p style="font-size: 0.9rem; opacity: 0.8;">Powered by Shyam Rughani</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -326,7 +327,7 @@ def main():
         st.markdown("""
         <div class="logo-box">
             <h2>CloudWatch Logs & Lambda Function Analyzer</h2>
-            <p>Powered by AWS CloudWatch & Lambda</p>
+            <p>Powered by Shyam Rughani</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -617,11 +618,11 @@ def main():
                 Version: 1.1.0
             """)
             
-        # Add a footer with AWS styling
+        # Add a footer with custom styling
         st.markdown("""
         <div class="footer">
-            <p>CloudWatch Logs Analyzer | Powered by AWS</p>
-            <p>© 2025 | <a href="https://aws.amazon.com/cloudwatch/" target="_blank">AWS CloudWatch</a></p>
+            <p>CloudWatch Logs & Lambda Function Analyzer | Powered by Shyam Rughani</p>
+            <p>© 2025 | <a href="https://github.com/shyamrughani83/CloudWatch-logs-lambda-analyzer" target="_blank">GitHub Repository</a></p>
         </div>
         """, unsafe_allow_html=True)
         
