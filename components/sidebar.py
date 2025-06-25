@@ -28,23 +28,6 @@ def render_sidebar(aws_client: Optional[CloudWatchLogsClient] = None) -> Dict[st
     with st.sidebar:
         st.title("Filters & Controls")
         
-        # Theme toggle
-        st.sidebar.subheader("Theme Settings")
-        current_theme = st.session_state.get('theme', 'dark')
-        theme_options = ["Dark", "Light"]
-        selected_theme = st.sidebar.radio(
-            "Select Theme",
-            theme_options,
-            index=0 if current_theme == 'dark' else 1,
-            horizontal=True
-        )
-        
-        # Update theme if changed
-        new_theme = 'dark' if selected_theme == "Dark" else 'light'
-        if new_theme != st.session_state.theme:
-            st.session_state.theme = new_theme
-            st.experimental_rerun()
-        
         # Mode selection (AWS or Demo)
         mode = st.radio("Mode", ["AWS", "Demo"], horizontal=True)
         
