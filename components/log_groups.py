@@ -59,37 +59,11 @@ def render_log_groups(aws_client: Optional[CloudWatchLogsClient] = None) -> None
         for lg in log_groups
     ])
     
-    # Display log groups in a searchable table
+    # Display log groups in a table
     st.subheader("Available Log Groups")
     
-    # Add search box with improved styling
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        search_term = st.text_input(
-            "Search log groups",
-            "",
-            placeholder="Enter log group name or pattern",
-            help="Filter log groups by name"
-        )
-    
-    with col2:
-        sort_by = st.selectbox(
-            "Sort by",
-            ["Name", "Creation Time", "Stored Bytes", "Retention (days)"],
-            help="Sort log groups by selected column"
-        )
-    
-    # Filter log groups based on search term
-    if search_term:
-        filtered_df = log_groups_df[log_groups_df['Name'].str.contains(search_term, case=False)]
-    else:
-        filtered_df = log_groups_df
-    
-    # Sort the dataframe
-    if sort_by == "Stored Bytes":
-        filtered_df = filtered_df.sort_values(by=sort_by, ascending=False)
-    else:
-        filtered_df = filtered_df.sort_values(by=sort_by)
+    # Sort the dataframe by name
+    filtered_df = log_groups_df.sort_values(by="Name")
     
     # Display the table with improved styling
     if not filtered_df.empty:
@@ -518,27 +492,6 @@ def display_log_group_details(aws_client: CloudWatchLogsClient, log_group_name: 
             help="CloudWatch Logs filter pattern"
         )
         
-        # Time range selector
-        col1, col2 = st.columns(2)
-        with col1:
-            start_time = st.date_input(
-                "Start Date",
-                value=datetime.datetime.now() - datetime.timedelta(hours=1),
-                help="Start date for log events",
-                key="query_start_date"
-            )
-        with col2:
-            end_time = st.date_input(
-                "End Date",
-                value=datetime.datetime.now(),
-                help="End date for log events",
-                key="query_end_date"
-            )
-        
-        # Convert to datetime
-        start_datetime = datetime.datetime.combine(start_time, datetime.time.min)
-        end_datetime = datetime.datetime.combine(end_time, datetime.time.max)
-        
         # Add limit selector
         limit = st.slider(
             "Maximum Results",
@@ -552,6 +505,10 @@ def display_log_group_details(aws_client: CloudWatchLogsClient, log_group_name: 
         # Query button
         if st.button("Query Logs", type="primary"):
             with st.spinner("Querying logs..."):
+                # Use the current time for the last 24 hours as default
+                end_datetime = datetime.datetime.now()
+                start_datetime = end_datetime - datetime.timedelta(days=1)
+                
                 logs = aws_client.filter_log_events(
                     log_group_name=log_group_name,
                     filter_pattern=filter_pattern if filter_pattern else None,
