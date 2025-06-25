@@ -278,11 +278,18 @@ def initialize_session_state():
     
     if 'aws_connected' not in st.session_state:
         st.session_state.aws_connected = False
+        
+    if 'theme' not in st.session_state:
+        st.session_state.theme = 'dark'  # Default to dark theme
 
 
-def load_css():
-    """Load custom CSS."""
-    css_file = os.path.join(os.path.dirname(__file__), "static/style.css")
+def load_css(theme="light"):
+    """Load custom CSS based on theme."""
+    if theme == "dark":
+        css_file = os.path.join(os.path.dirname(__file__), "static/dark_theme.css")
+    else:
+        css_file = os.path.join(os.path.dirname(__file__), "static/style.css")
+    
     with open(css_file, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
@@ -302,9 +309,9 @@ def main():
         # Initialize session state
         initialize_session_state()
         
-        # Load custom CSS
+        # Load custom CSS based on theme
         try:
-            load_css()
+            load_css(st.session_state.theme)
         except Exception as e:
             app_logger.warning(f"Failed to load custom CSS: {str(e)}")
         
