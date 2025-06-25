@@ -20,7 +20,11 @@ def render_metrics_dashboard(metrics: Dict[str, Any]) -> None:
         st.info("No metrics available. Please fetch log data first.")
         return
     
-    st.subheader("Performance Overview")
+    st.markdown("""
+    <div class="stcard">
+        <h3>📊 Performance Overview</h3>
+        <div class="dashboard-metrics">
+    """, unsafe_allow_html=True)
     
     # Create metrics cards in a grid
     col1, col2, col3, col4 = st.columns(4)
@@ -29,100 +33,118 @@ def render_metrics_dashboard(metrics: Dict[str, Any]) -> None:
     with col1:
         render_metric_card(
             "Total Invocations",
-            metrics.get('total_invocations', 0),
+            metrics.get('count', 0),
             "",
-            "blue"
+            "blue",
+            "📈"
         )
     
     # Success Rate
     with col2:
-        success_rate = metrics.get('success_rate', 0) * 100
+        success_rate = (1 - metrics.get('error_rate', 0)) * 100
         color = "green" if success_rate >= 99 else "orange" if success_rate >= 95 else "red"
         render_metric_card(
             "Success Rate",
             f"{success_rate:.2f}%",
             f"{metrics.get('error_rate', 0) * 100:.2f}% errors",
-            color
+            color,
+            "✅"
         )
     
     # Avg Duration
     with col3:
-        avg_duration = metrics.get('avg_duration_ms', 0)
+        avg_duration = metrics.get('avg_duration', 0)
         color = "green" if avg_duration < 100 else "orange" if avg_duration < 500 else "red"
         render_metric_card(
             "Avg Duration",
             f"{avg_duration:.2f} ms",
-            f"P95: {metrics.get('p95_duration_ms', 0):.2f} ms",
-            color
+            f"P95: {metrics.get('p95_duration', 0):.2f} ms",
+            color,
+            "⏱️"
         )
     
     # Memory Utilization
     with col4:
-        memory_util = metrics.get('memory_utilization', 0) * 100
+        memory_util = metrics.get('avg_memory_utilization', 0)
         color = "orange" if memory_util < 40 else "green" if memory_util < 80 else "red"
         render_metric_card(
             "Memory Utilization",
             f"{memory_util:.2f}%",
-            f"Max: {metrics.get('max_memory_used_mb', 0):.0f} MB",
-            color
+            f"Max: {metrics.get('max_memory_utilization', 0):.2f}%",
+            color,
+            "🧠"
         )
     
+    st.markdown("</div>", unsafe_allow_html=True)
+    
     # Second row of metrics
+    st.markdown("""
+    <div class="dashboard-metrics" style="margin-top: 20px;">
+    """, unsafe_allow_html=True)
+    
     col1, col2, col3, col4 = st.columns(4)
     
     # Cold Starts
     with col1:
-        cold_start_rate = metrics.get('cold_start_rate', 0) * 100
+        cold_start_count = metrics.get('cold_starts', 0)
+        cold_start_rate = cold_start_count / metrics.get('count', 1) * 100 if metrics.get('count', 0) > 0 else 0
         color = "green" if cold_start_rate < 5 else "orange" if cold_start_rate < 15 else "red"
         render_metric_card(
-            "Cold Start Rate",
-            f"{cold_start_rate:.2f}%",
-            f"{metrics.get('cold_start_count', 0)} cold starts",
-            color
+            "Cold Starts",
+            f"{cold_start_count}",
+            f"{cold_start_rate:.2f}% of invocations",
+            color,
+            "❄️"
         )
     
     # Max Duration
     with col2:
-        max_duration = metrics.get('max_duration_ms', 0)
+        max_duration = metrics.get('max_duration', 0)
         color = "green" if max_duration < 1000 else "orange" if max_duration < 5000 else "red"
         render_metric_card(
             "Max Duration",
             f"{max_duration:.2f} ms",
             "",
-            color
+            color,
+            "🚀"
         )
     
     # Error Count
     with col3:
-        error_count = int(metrics.get('total_invocations', 0) * metrics.get('error_rate', 0))
+        error_count = int(metrics.get('count', 0) * metrics.get('error_rate', 0))
         color = "green" if error_count == 0 else "orange" if error_count < 5 else "red"
         render_metric_card(
             "Error Count",
             f"{error_count}",
-            "",
-            color
+            f"{metrics.get('error_rate', 0) * 100:.2f}% error rate",
+            color,
+            "⚠️"
         )
     
-    # Billed Duration
+    # Memory Size
     with col4:
-        if 'avg_billed_duration_ms' in metrics:
-            billed_duration = metrics.get('avg_billed_duration_ms', 0)
+        memory_size = metrics.get('current_memory', 0)
+        if memory_size > 0:
             render_metric_card(
-                "Avg Billed Duration",
-                f"{billed_duration:.2f} ms",
+                "Memory Size",
+                f"{memory_size} MB",
                 "",
-                "blue"
+                "blue",
+                "💾"
             )
         else:
             render_metric_card(
-                "Billed Duration",
+                "Memory Size",
                 "N/A",
                 "",
-                "gray"
+                "gray",
+                "💾"
             )
+    
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
-def render_metric_card(title: str, value: Any, subtitle: str = "", color: str = "blue") -> None:
+def render_metric_card(title: str, value: Any, subtitle: str = "", color: str = "blue", icon: str = "") -> None:
     """
     Render a metric card with title, value, and optional subtitle.
     
@@ -131,6 +153,7 @@ def render_metric_card(title: str, value: Any, subtitle: str = "", color: str = 
         value: Value to display
         subtitle: Optional subtitle or additional context
         color: Color for the value (green, orange, red, blue, gray)
+        icon: Optional icon to display
     """
     # Define colors
     colors = {
@@ -144,31 +167,11 @@ def render_metric_card(title: str, value: Any, subtitle: str = "", color: str = 
     # Create card with custom HTML/CSS
     st.markdown(
         f"""
-        <div style="
-            border: 1px solid #e1e4e8;
-            border-radius: 6px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            background-color: white;
-            height: 100%;
-        ">
-            <h4 style="
-                margin-top: 0;
-                margin-bottom: 0.5rem;
-                font-size: 0.9rem;
-                color: #6c757d;
-            ">{title}</h4>
-            <p style="
-                font-size: 1.5rem;
-                font-weight: 500;
-                margin-bottom: 0.25rem;
-                color: {colors.get(color, colors['blue'])};
-            ">{value}</p>
-            <p style="
-                font-size: 0.8rem;
-                color: #6c757d;
-                margin-bottom: 0;
-            ">{subtitle}</p>
+        <div class="metric-card">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">{icon}</div>
+            <div style="font-size: 0.9rem; color: #6c757d; margin-bottom: 0.5rem; font-weight: 500;">{title}</div>
+            <div style="font-size: 1.8rem; font-weight: 700; margin-bottom: 0.25rem; color: {colors.get(color, colors['blue'])};">{value}</div>
+            <div style="font-size: 0.8rem; color: #6c757d;">{subtitle}</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -185,50 +188,51 @@ def render_performance_recommendations(metrics: Dict[str, Any]) -> None:
     if not metrics:
         return
     
-    st.subheader("Performance Recommendations")
+    st.markdown("""
+    <div class="stcard">
+        <h3>💡 Performance Recommendations</h3>
+    """, unsafe_allow_html=True)
     
     recommendations = []
     
     # Memory recommendations
-    memory_analysis = metrics.get('memory_analysis', {})
-    if memory_analysis:
-        memory_rec = memory_analysis.get('recommendation', {})
-        if memory_rec:
-            action = memory_rec.get('action')
-            if action == 'decrease':
-                recommendations.append({
-                    'title': 'Memory Optimization',
-                    'description': f"Consider decreasing memory from {memory_rec.get('current_size')} MB to {memory_rec.get('recommended_size')} MB to save costs.",
-                    'impact': f"Potential savings: {memory_rec.get('savings_percentage', 0) * 100:.1f}%",
-                    'priority': 'high'
-                })
-            elif action == 'increase':
-                recommendations.append({
-                    'title': 'Memory Optimization',
-                    'description': f"Consider increasing memory from {memory_rec.get('current_size')} MB to {memory_rec.get('recommended_size')} MB to improve performance.",
-                    'impact': "May reduce duration and improve overall performance",
-                    'priority': 'medium'
-                })
-    
-    # Cold start recommendations
-    cold_start_analysis = metrics.get('cold_start_analysis', {})
-    if cold_start_analysis:
-        cold_start_rate = cold_start_analysis.get('cold_start_rate', 0)
-        cold_start_impact = cold_start_analysis.get('cold_start_impact', 0)
+    memory_optimization = metrics.get('memory_optimization', {})
+    if memory_optimization:
+        current_memory = memory_optimization.get('current_memory', 0)
+        recommended_memory = memory_optimization.get('recommended_memory', 0)
+        potential_savings = memory_optimization.get('potential_savings', 0)
         
-        if cold_start_rate > 0.1 and cold_start_impact > 1.0:
+        if potential_savings > 0.1:  # More than 10% savings
             recommendations.append({
-                'title': 'Cold Start Optimization',
-                'description': "Consider using Provisioned Concurrency to reduce cold starts.",
-                'impact': f"Cold starts are {cold_start_impact:.1f}x slower than warm starts",
-                'priority': 'high' if cold_start_rate > 0.2 else 'medium'
+                'title': '🧠 Memory Optimization',
+                'description': f"Consider decreasing memory from {current_memory} MB to {recommended_memory} MB to save costs.",
+                'impact': f"Potential savings: {potential_savings * 100:.1f}%",
+                'priority': 'high'
+            })
+        elif recommended_memory > current_memory:
+            recommendations.append({
+                'title': '🧠 Memory Optimization',
+                'description': f"Consider increasing memory from {current_memory} MB to {recommended_memory} MB to improve performance.",
+                'impact': "May reduce duration and improve overall performance",
+                'priority': 'medium'
             })
     
-    # Duration recommendations
-    p95_duration = metrics.get('p95_duration_ms', 0)
-    if p95_duration > 1000:
+    # Cold start recommendations
+    cold_starts = metrics.get('cold_starts', 0)
+    count = metrics.get('count', 0)
+    if count > 0 and cold_starts / count > 0.1:  # More than 10% cold starts
         recommendations.append({
-            'title': 'Duration Optimization',
+            'title': '❄️ Cold Start Optimization',
+            'description': "Consider using Provisioned Concurrency to reduce cold starts.",
+            'impact': f"Cold starts: {cold_starts} ({cold_starts / count * 100:.1f}% of invocations)",
+            'priority': 'high' if cold_starts / count > 0.2 else 'medium'
+        })
+    
+    # Duration recommendations
+    p95_duration = metrics.get('p95_duration', 0)
+    if p95_duration > 1000:  # More than 1 second
+        recommendations.append({
+            'title': '⏱️ Duration Optimization',
             'description': "Function duration is high. Consider optimizing code or increasing memory.",
             'impact': f"P95 duration: {p95_duration:.2f} ms",
             'priority': 'medium' if p95_duration < 3000 else 'high'
@@ -236,9 +240,9 @@ def render_performance_recommendations(metrics: Dict[str, Any]) -> None:
     
     # Error recommendations
     error_rate = metrics.get('error_rate', 0)
-    if error_rate > 0.01:
+    if error_rate > 0.01:  # More than 1% errors
         recommendations.append({
-            'title': 'Error Handling',
+            'title': '🚨 Error Handling',
             'description': "Function has a high error rate. Review error patterns and implement better error handling.",
             'impact': f"Error rate: {error_rate * 100:.2f}%",
             'priority': 'high' if error_rate > 0.05 else 'medium'
@@ -247,30 +251,86 @@ def render_performance_recommendations(metrics: Dict[str, Any]) -> None:
     # Display recommendations
     if recommendations:
         for i, rec in enumerate(recommendations):
-            priority_color = {
-                'high': '#dc3545',
-                'medium': '#fd7e14',
-                'low': '#28a745'
-            }.get(rec['priority'], '#6c757d')
+            priority_colors = {
+                'high': {
+                    'bg': '#fdeded',
+                    'border': '#dc3545',
+                    'icon': '🔴'
+                },
+                'medium': {
+                    'bg': '#fff3e0',
+                    'border': '#fd7e14',
+                    'icon': '🟠'
+                },
+                'low': {
+                    'bg': '#e6f4ea',
+                    'border': '#28a745',
+                    'icon': '🟢'
+                }
+            }.get(rec['priority'], {
+                'bg': '#f8f9fa',
+                'border': '#6c757d',
+                'icon': 'ℹ️'
+            })
             
             st.markdown(
                 f"""
                 <div style="
-                    border-left: 4px solid {priority_color};
-                    padding: 0.5rem 1rem;
-                    margin-bottom: 1rem;
-                    background-color: #f8f9fa;
+                    border-left: 4px solid {priority_colors['border']};
+                    padding: 1.2rem;
+                    margin-bottom: 1.2rem;
+                    background-color: {priority_colors['bg']};
+                    border-radius: 8px;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+                    animation: fadeIn 0.5s ease-out forwards;
+                    animation-delay: {i * 0.1}s;
+                    opacity: 0;
                 ">
-                    <h5 style="margin-top: 0;">{rec['title']}</h5>
-                    <p style="margin-bottom: 0.5rem;">{rec['description']}</p>
+                    <h4 style="margin-top: 0; display: flex; align-items: center; gap: 8px; font-size: 1.2rem;">
+                        {rec['title']}
+                        <span style="
+                            font-size: 0.8rem;
+                            background-color: {priority_colors['border']};
+                            color: white;
+                            padding: 3px 10px;
+                            border-radius: 20px;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                        ">{rec['priority']}</span>
+                    </h4>
+                    <p style="margin-bottom: 0.8rem; font-size: 1rem; line-height: 1.5;">{rec['description']}</p>
                     <p style="
-                        font-size: 0.8rem;
-                        color: #6c757d;
+                        font-size: 0.9rem;
+                        color: #555;
                         margin-bottom: 0;
-                    "><strong>Impact:</strong> {rec['impact']}</p>
+                        display: flex;
+                        align-items: center;
+                        gap: 5px;
+                        background-color: rgba(0,0,0,0.03);
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                    ">
+                        <strong>Impact:</strong> {rec['impact']}
+                    </p>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
     else:
-        st.info("No performance recommendations at this time.")
+        st.markdown("""
+        <div style="
+            padding: 2rem;
+            text-align: center;
+            background-color: #e6f4ea;
+            border-radius: 8px;
+            border: 1px solid #d4edda;
+            margin: 1rem 0;
+            animation: fadeIn 0.5s ease-out forwards;
+        ">
+            <span style="font-size: 3rem;">✅</span>
+            <h4 style="margin-top: 1rem; color: #28a745; font-size: 1.4rem;">All Good!</h4>
+            <p style="color: #555; font-size: 1.1rem;">No performance recommendations at this time.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)

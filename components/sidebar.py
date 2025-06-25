@@ -37,7 +37,9 @@ def render_sidebar(aws_client: Optional[CloudWatchLogsClient] = None) -> Dict[st
             'start_time': None,
             'end_time': None,
             'log_groups': [],
-            'filter_pattern': None
+            'filter_pattern': None,
+            'region': None,
+            'connect_aws': False
         }
         
         # Time range selection
@@ -87,6 +89,68 @@ def render_sidebar(aws_client: Optional[CloudWatchLogsClient] = None) -> Dict[st
         
         # AWS specific controls
         if mode == "AWS":
+            # AWS Region selection
+            st.subheader("AWS Region")
+            
+            # Get available regions
+            available_regions = []
+            if aws_client:
+                available_regions = aws_client.get_available_regions()
+            else:
+                # Fallback to common regions
+                available_regions = [
+                    'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
+                    'ca-central-1',
+                    'eu-north-1', 'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1',
+                    'ap-northeast-1', 'ap-northeast-2', 'ap-northeast-3',
+                    'ap-southeast-1', 'ap-southeast-2',
+                    'ap-south-1',
+                    'sa-east-1'
+                ]
+            
+            # Get current region from client or default
+            current_region = aws_client.region if aws_client else "us-east-1"
+            
+            # Region dropdown
+            selected_region = st.selectbox(
+                "Select AWS Region",
+                options=available_regions,
+                index=available_regions.index(current_region) if current_region in available_regions else 0,
+                help="Select the AWS region to query CloudWatch logs from"
+            )
+            
+            # Store selected region in filters
+            filters['region'] = selected_region
+            
+            # Check if region changed and needs client refresh
+            if aws_client and selected_region != aws_client.region:
+                st.info(f"Region changed to {selected_region}. Click 'Connect to AWS' to refresh.")
+            
+            # AWS Profile selection
+            st.subheader("AWS Profile")
+            available_profiles = get_aws_profiles()
+            selected_profile = st.selectbox(
+                "Select AWS Profile",
+                options=available_profiles,
+                index=0,
+                help="Select the AWS profile to use for authentication"
+            )
+            filters['profile'] = selected_profile
+            
+            # Connect to AWS button
+            connect_button = st.button("Connect to AWS", type="primary", use_container_width=True)
+            if connect_button:
+                filters['connect_aws'] = True
+                st.success(f"Connecting to AWS using profile '{selected_profile}' in region '{selected_region}'...")
+            
+            # Authentication status - only show if user has explicitly connected
+            if aws_client and 'aws_connected' in st.session_state and st.session_state.aws_connected:
+                is_authenticated = aws_client.is_authenticated()
+                if is_authenticated:
+                    st.success("✅ Connected to AWS")
+                else:
+                    st.error("❌ Failed to connect to AWS. Please check your credentials.")
+            
             # Log group selection
             st.subheader("Log Groups")
             

@@ -1,9 +1,11 @@
 """
-CloudWatch Logs Analyzer - Main Application
+CloudWatch Logs & Lambda Function Analyzer - Main Application
 
-A Streamlit application for analyzing AWS Lambda function logs from CloudWatch.
-Provides visual analytics and insights to help developers and DevOps engineers
-understand performance patterns, identify errors, and optimize resource usage.
+A comprehensive Streamlit application for analyzing AWS CloudWatch logs and managing Lambda functions.
+Provides visual analytics, insights, and direct Lambda function management to help developers and DevOps engineers
+understand performance patterns, identify errors, optimize resource usage, and test Lambda functions.
+Features include log analysis, metrics visualization, Lambda function management, function invocation with logs,
+error analysis, and performance recommendations.
 """
 
 import streamlit as st
@@ -11,10 +13,13 @@ import pandas as pd
 import datetime
 import time
 import traceback
+import os
+import base64
 from typing import Dict, Any, Optional, List
 
 # Import utility modules
 from utils.aws_client import CloudWatchLogsClient, get_aws_profiles
+from utils.lambda_client import LambdaClient
 from utils.log_processor import LogProcessor
 from utils.metrics import MetricsCalculator
 from utils.helpers import ensure_timezone_naive, convert_for_streamlit_display, ensure_arrow_compatible, safe_display
@@ -27,6 +32,17 @@ from components.timeline_chart import render_timeline_chart, render_invocation_p
 from components.memory_chart import render_memory_chart
 from components.error_analysis import render_error_analysis, render_error_correlation
 from components.log_explorer import render_log_explorer
+from components.lambda_functions import render_lambda_functions, render_lambda_metrics
+from components.log_explorer import render_log_explorer
+from components.theme_toggle import render_theme_toggle
+
+# Set page configuration
+st.set_page_config(
+    page_title="CloudWatch Logs & Lambda Function Analyzer",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 
 def fetch_aws_logs(aws_client: CloudWatchLogsClient, log_groups: List[str], 
@@ -173,25 +189,39 @@ def calculate_metrics(log_data: pd.DataFrame) -> Dict[str, Any]:
     try:
         app_logger.info("Calculating metrics from log data")
         
-        metrics_calculator = MetricsCalculator(log_data)
+        # Use static methods of MetricsCalculator
         
         # Calculate basic metrics
-        basic_metrics = metrics_calculator.calculate_basic_metrics()
+        basic_metrics = MetricsCalculator.calculate_basic_metrics(log_data)
+        
+        # Calculate Lambda performance metrics
+        lambda_metrics = MetricsCalculator.calculate_lambda_performance_metrics(log_data)
+        
+        # Calculate memory optimization
+        memory_optimization = MetricsCalculator.calculate_memory_optimization(log_data)
+        
+        # Calculate error metrics
+        error_metrics = MetricsCalculator.calculate_error_metrics(log_data)
         
         # Calculate time-series metrics
-        time_series_metrics = metrics_calculator.calculate_time_series_metrics()
-        
-        # Analyze errors
-        error_analysis = metrics_calculator.analyze_errors()
+        time_series_metrics = MetricsCalculator.calculate_time_series_metrics(
+            log_data, 
+            time_column='timestamp', 
+            value_column='duration', 
+            freq='1min'
+        )
         
         # Analyze memory usage
-        memory_analysis = metrics_calculator.analyze_memory_usage()
+        memory_analysis = MetricsCalculator.analyze_memory_usage(log_data)
+        
+        # Analyze errors
+        error_analysis = MetricsCalculator.analyze_errors(log_data)
         
         # Analyze cold starts
-        cold_start_analysis = metrics_calculator.analyze_cold_starts()
+        cold_start_analysis = MetricsCalculator.analyze_cold_starts(log_data)
         
         # Get invocation patterns
-        invocation_patterns = metrics_calculator.get_invocation_patterns()
+        invocation_patterns = MetricsCalculator.get_invocation_patterns(log_data)
         
         # Add log group information if available
         log_groups_info = {}
@@ -228,6 +258,9 @@ def initialize_session_state():
     if 'aws_client' not in st.session_state:
         st.session_state.aws_client = None
     
+    if 'lambda_client' not in st.session_state:
+        st.session_state.lambda_client = None
+    
     if 'log_data' not in st.session_state:
         st.session_state.log_data = None
     
@@ -242,49 +275,56 @@ def initialize_session_state():
     
     if 'aws_profile' not in st.session_state:
         st.session_state.aws_profile = 'default'
+    
+    if 'aws_connected' not in st.session_state:
+        st.session_state.aws_connected = False
 
+
+def load_css():
+    """Load custom CSS."""
+    css_file = os.path.join(os.path.dirname(__file__), "static/style.css")
+    with open(css_file, "r") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+def get_aws_logo_base64():
+    """Get AWS logo as base64 string."""
+    logo_path = os.path.join(os.path.dirname(__file__), "static/aws-logo.png")
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return ""
 
 def main():
     """Main application function."""
     try:
-        app_logger.info("Starting CloudWatch Logs Analyzer application")
+        app_logger.info("Starting CloudWatch Logs & Lambda Function Analyzer application")
         
         # Initialize session state
         initialize_session_state()
         
-        # Custom CSS
+        # Load custom CSS
+        try:
+            load_css()
+        except Exception as e:
+            app_logger.warning(f"Failed to load custom CSS: {str(e)}")
+        
+        # Application header with AWS styling
         st.markdown("""
-            <style>
-            .main .block-container {
-                padding-top: 2rem;
-                padding-bottom: 2rem;
-            }
-            .stTabs [data-baseweb="tab-list"] {
-                gap: 24px;
-            }
-            .stTabs [data-baseweb="tab"] {
-                height: 50px;
-                white-space: pre-wrap;
-                background-color: transparent;
-                border-radius: 4px 4px 0px 0px;
-                gap: 1px;
-                padding-top: 10px;
-                padding-bottom: 10px;
-            }
-            .stTabs [aria-selected="true"] {
-                background-color: #f0f2f6;
-                border-bottom: 2px solid #FF9900;
-            }
-            </style>
+        <div class="main-header">
+            <h1>📊 CloudWatch Logs & Lambda Function Analyzer</h1>
+            <p>Analyze AWS CloudWatch logs and manage Lambda functions to identify performance patterns, test functions, and optimize resources.</p>
+        </div>
         """, unsafe_allow_html=True)
         
-        # Application header
-        st.title("CloudWatch Logs Analyzer")
-        st.markdown(
-            "Analyze AWS Lambda function logs to identify performance patterns, errors, and optimization opportunities."
-        )
+        # Logo box with white text
+        st.markdown("""
+        <div class="logo-box">
+            <h2>CloudWatch Logs & Lambda Function Analyzer</h2>
+            <p>Powered by AWS CloudWatch & Lambda</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Initialize or update AWS client if needed
+        # Initialize or update AWS clients if needed
         if st.session_state.aws_client is None:
             st.session_state.aws_client = CloudWatchLogsClient(
                 region_name=st.session_state.aws_region,
@@ -293,6 +333,44 @@ def main():
         
         # Render sidebar and get filter values
         filters = render_sidebar(st.session_state.aws_client)
+        
+        # Handle AWS connection button
+        if filters['mode'] == 'AWS' and filters.get('connect_aws'):
+            with st.spinner("Connecting to AWS..."):
+                # Update region in session state
+                if filters.get('region') and filters['region'] != st.session_state.aws_region:
+                    st.session_state.aws_region = filters['region']
+                
+                # Update profile in session state
+                if filters.get('profile') and filters['profile'] != st.session_state.aws_profile:
+                    st.session_state.aws_profile = filters['profile']
+                
+                # Create new AWS clients with updated settings
+                st.session_state.aws_client = CloudWatchLogsClient(
+                    region_name=st.session_state.aws_region,
+                    profile_name=None if st.session_state.aws_profile == "default" else st.session_state.aws_profile
+                )
+                
+                st.session_state.lambda_client = LambdaClient(
+                    region_name=st.session_state.aws_region,
+                    profile_name=None if st.session_state.aws_profile == "default" else st.session_state.aws_profile
+                )
+                
+                # Check authentication
+                if st.session_state.aws_client.is_authenticated():
+                    # Set the aws_connected flag to true
+                    st.session_state.aws_connected = True
+                    st.success(f"Successfully connected to AWS in region {st.session_state.aws_region}")
+                else:
+                    st.session_state.aws_connected = False
+                    st.error("Failed to connect to AWS. Please check your credentials and region.")
+                
+                st.experimental_rerun()
+        
+        # Check if region has changed and update client if needed
+        elif filters['mode'] == 'AWS' and filters.get('region') and filters['region'] != st.session_state.aws_region:
+            st.session_state.aws_region = filters['region']
+            st.info(f"Region changed to {filters['region']}. Click 'Connect to AWS' to apply.")
         
         # Handle fetch button click
         if filters.get('fetch'):
@@ -340,8 +418,18 @@ def main():
         if st.session_state.last_fetch_time:
             st.caption(f"Last updated: {st.session_state.last_fetch_time.strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # Create tabs for different views
-        tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🔍 Log Explorer", "⚙️ Settings"])
+        # Create tabs for different views with attractive styling
+        st.markdown("""
+        <div class='stcard'>
+        """, unsafe_allow_html=True)
+        
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📊 **Dashboard**", 
+            "🔍 **Log Explorer**",
+            "⚡ **Lambda Functions**",
+            "📈 **Lambda Metrics**",
+            "⚙️ **Settings**"
+        ])
         
         # Dashboard tab
         with tab1:
@@ -414,9 +502,38 @@ def main():
                     "No log data available. Please fetch logs using the sidebar controls."
                 )
         
-        # Settings tab
+        # Lambda Functions tab
         with tab3:
+            render_lambda_functions(st.session_state.lambda_client)
+        
+        # Lambda Metrics tab
+        with tab4:
+            render_lambda_metrics(st.session_state.lambda_client)
+        
+        # Settings tab
+        with tab5:
             st.header("Settings")
+            
+            # About section
+            st.subheader("About CloudWatch Logs & Lambda Function Analyzer")
+            
+            st.markdown("""
+            <div class="stcard">
+                <h3>🚀 Features</h3>
+                <ul>
+                    <li><strong>CloudWatch Logs Analysis</strong>: Analyze logs from multiple log groups with advanced filtering</li>
+                    <li><strong>Lambda Function Management</strong>: View, manage, and test Lambda functions directly from the UI</li>
+                    <li><strong>Function Invocation with Logs</strong>: Invoke Lambda functions and view both responses and execution logs</li>
+                    <li><strong>Performance Metrics</strong>: Visualize invocation patterns, durations, and memory usage</li>
+                    <li><strong>Error Analysis</strong>: Identify and analyze errors in your logs with correlation analysis</li>
+                    <li><strong>Performance Recommendations</strong>: Get actionable recommendations for optimizing Lambda functions</li>
+                    <li><strong>Timeline Visualization</strong>: View invocation patterns over time with interactive charts</li>
+                    <li><strong>Memory Utilization Analysis</strong>: Optimize Lambda memory settings based on actual usage</li>
+                    <li><strong>Log Explorer</strong>: Search and filter log entries with advanced filtering capabilities</li>
+                    <li><strong>Lambda Metrics Dashboard</strong>: Monitor Lambda function performance metrics</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
             
             # AWS Settings
             st.subheader("AWS Configuration")
@@ -493,6 +610,15 @@ def main():
                 
                 Version: 1.1.0
             """)
+            
+        # Add a footer with AWS styling
+        st.markdown("""
+        <div class="footer">
+            <p>CloudWatch Logs Analyzer | Powered by AWS</p>
+            <p>© 2025 | <a href="https://aws.amazon.com/cloudwatch/" target="_blank">AWS CloudWatch</a></p>
+        </div>
+        """, unsafe_allow_html=True)
+        
     except Exception as e:
         app_logger.exception(f"Unhandled exception in main application: {str(e)}")
         st.error(f"An unexpected error occurred: {str(e)}")
