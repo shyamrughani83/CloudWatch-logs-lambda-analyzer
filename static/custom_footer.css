@@ -1,0 +1,15 @@
+/* Custom footer styling */
+footer {
+    visibility: hidden;
+}
+
+footer:after {
+    content: 'StreamLit Made by Shyam Rughani';
+    visibility: visible;
+    display: block;
+    position: relative;
+    padding: 5px;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}

@@ -282,8 +282,14 @@ def initialize_session_state():
 
 def load_css():
     """Load custom CSS."""
+    # Load main CSS
     css_file = os.path.join(os.path.dirname(__file__), "static/style.css")
     with open(css_file, "r") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    
+    # Load custom footer CSS
+    footer_css_file = os.path.join(os.path.dirname(__file__), "static/custom_footer.css")
+    with open(footer_css_file, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 def get_aws_logo_base64():
