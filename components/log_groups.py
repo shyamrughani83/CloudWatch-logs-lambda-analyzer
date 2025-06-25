@@ -218,7 +218,7 @@ def display_log_group_details(aws_client: CloudWatchLogsClient, log_group_name: 
         # Recent activity
         st.markdown("### Recent Activity")
         with st.spinner("Fetching recent logs..."):
-            recent_logs = aws_client.get_log_events(
+            recent_logs, _ = aws_client.get_log_events(
                 log_group_name=log_group_name,
                 limit=5
             )
@@ -310,7 +310,7 @@ def display_log_group_details(aws_client: CloudWatchLogsClient, log_group_name: 
                 
                 # Fetch logs for the selected stream
                 with st.spinner(f"Fetching logs for {selected_stream}..."):
-                    logs = aws_client.get_log_events(
+                    logs, _ = aws_client.get_log_events(
                         log_group_name=log_group_name,
                         log_stream_name=selected_stream,
                         start_time=int(start_datetime.timestamp() * 1000),
