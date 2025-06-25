@@ -295,13 +295,15 @@ def display_log_group_details(aws_client: CloudWatchLogsClient, log_group_name: 
                     start_time = st.date_input(
                         "Start Date",
                         value=datetime.datetime.now() - datetime.timedelta(hours=1),
-                        help="Start date for log events"
+                        help="Start date for log events",
+                        key=f"stream_start_date_{selected_stream}"
                     )
                 with col2:
                     end_time = st.date_input(
                         "End Date",
                         value=datetime.datetime.now(),
-                        help="End date for log events"
+                        help="End date for log events",
+                        key=f"stream_end_date_{selected_stream}"
                     )
                 
                 # Convert to datetime
@@ -522,13 +524,15 @@ def display_log_group_details(aws_client: CloudWatchLogsClient, log_group_name: 
             start_time = st.date_input(
                 "Start Date",
                 value=datetime.datetime.now() - datetime.timedelta(hours=1),
-                help="Start date for log events"
+                help="Start date for log events",
+                key="query_start_date"
             )
         with col2:
             end_time = st.date_input(
                 "End Date",
                 value=datetime.datetime.now(),
-                help="End date for log events"
+                help="End date for log events",
+                key="query_end_date"
             )
         
         # Convert to datetime

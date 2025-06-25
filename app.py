@@ -342,6 +342,13 @@ def main():
                 region_name=st.session_state.aws_region,
                 profile_name=None if st.session_state.aws_profile == "default" else st.session_state.aws_profile
             )
+            
+        # Initialize Lambda client if not already initialized
+        if st.session_state.lambda_client is None:
+            st.session_state.lambda_client = LambdaClient(
+                region_name=st.session_state.aws_region,
+                profile_name=None if st.session_state.aws_profile == "default" else st.session_state.aws_profile
+            )
         
         # Render sidebar and get filter values
         filters = render_sidebar(st.session_state.aws_client)
