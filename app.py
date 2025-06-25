@@ -319,7 +319,7 @@ def main():
         <div class="main-header">
             <h1>📊 CloudWatch Logs & Lambda Function Analyzer</h1>
             <p>Analyze AWS CloudWatch logs and manage Lambda functions to identify performance patterns, test functions, and optimize resources.</p>
-            <p style="font-size: 0.9rem; opacity: 0.8;">Powered by Shyam Rughani</p>
+            <p style="font-size: 0.9rem; opacity: 0.8;">Powered by AWS</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -327,7 +327,7 @@ def main():
         st.markdown("""
         <div class="logo-box">
             <h2>CloudWatch Logs & Lambda Function Analyzer</h2>
-            <p>Powered by Shyam Rughani</p>
+            <p>Powered by AWS</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -621,8 +621,8 @@ def main():
         # Add a footer with custom styling
         st.markdown("""
         <div class="footer">
-            <p>CloudWatch Logs & Lambda Function Analyzer | Powered by Shyam Rughani</p>
-            <p>© 2025 | <a href="https://github.com/shyamrughani83/CloudWatch-logs-lambda-analyzer" target="_blank">GitHub Repository</a></p>
+            <p>CloudWatch Logs & Lambda Function Analyzer | Powered by AWS</p>
+            <p>© 2025 | Shyam Rughani (Cloud Man)</p>
         </div>
         """, unsafe_allow_html=True)
         

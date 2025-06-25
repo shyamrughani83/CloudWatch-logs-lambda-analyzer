@@ -4,7 +4,7 @@ footer {
 }
 
 footer:after {
-    content: 'StreamLit Made by Shyam Rughani';
+    content: 'StreamLit Made by Shyam Rughani (Cloud Man)';
     visibility: visible;
     display: block;
     position: relative;
