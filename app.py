@@ -31,7 +31,6 @@ from components.metrics_dashboard import render_metrics_dashboard, render_perfor
 from components.timeline_chart import render_timeline_chart, render_invocation_patterns
 from components.memory_chart import render_memory_chart
 from components.error_analysis import render_error_analysis, render_error_correlation
-from components.log_explorer import render_log_explorer
 from components.lambda_functions import render_lambda_functions, render_lambda_metrics
 from components.log_groups import render_log_groups
 from components.theme_toggle import render_theme_toggle
@@ -442,10 +441,9 @@ def main():
         <div class='stcard'>
         """, unsafe_allow_html=True)
         
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "📊 **Dashboard**", 
             "📚 **Log Groups**",
-            "🔍 **Log Explorer**",
             "⚡ **Lambda Functions**",
             "📈 **Lambda Metrics**",
             "⚙️ **Settings**"
@@ -517,25 +515,16 @@ def main():
         with tab2:
             render_log_groups(st.session_state.aws_client)
         
-        # Log Explorer tab
-        with tab3:
-            if st.session_state.log_data is not None and not st.session_state.log_data.empty:
-                render_log_explorer(st.session_state.log_data)
-            else:
-                st.info(
-                    "No log data available. Please fetch logs using the sidebar controls."
-                )
-        
         # Lambda Functions tab
-        with tab4:
+        with tab3:
             render_lambda_functions(st.session_state.lambda_client)
         
         # Lambda Metrics tab
-        with tab5:
+        with tab4:
             render_lambda_metrics(st.session_state.lambda_client)
         
         # Settings tab
-        with tab6:
+        with tab5:
             st.header("Settings")
             
             # About section
@@ -554,7 +543,6 @@ def main():
                     <li><strong>Performance Recommendations</strong>: Get actionable recommendations for optimizing Lambda functions</li>
                     <li><strong>Timeline Visualization</strong>: View invocation patterns over time with interactive charts</li>
                     <li><strong>Memory Utilization Analysis</strong>: Optimize Lambda memory settings based on actual usage</li>
-                    <li><strong>Log Explorer</strong>: Search and filter log entries with advanced filtering capabilities</li>
                     <li><strong>Lambda Metrics Dashboard</strong>: Monitor Lambda function performance metrics</li>
                 </ul>
             </div>
