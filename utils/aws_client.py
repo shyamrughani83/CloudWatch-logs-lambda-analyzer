@@ -248,3 +248,128 @@ class CloudWatchLogsClient:
                     break
                     
             return events[:limit], processed_count
+    def describe_log_group(self, log_group_name: str) -> Dict[str, Any]:
+        """
+        Get detailed information about a specific log group.
+        
+        Args:
+            log_group_name: Name of the log group
+            
+        Returns:
+            Dict[str, Any]: Log group details
+        """
+        try:
+            response = self.logs_client.describe_log_groups(
+                logGroupNamePrefix=log_group_name,
+                limit=1
+            )
+            
+            log_groups = response.get('logGroups', [])
+            for log_group in log_groups:
+                if log_group.get('logGroupName') == log_group_name:
+                    return log_group
+            
+            return {}
+        except Exception as e:
+            self.logger.error(f"Error describing log group {log_group_name}: {str(e)}")
+            return {}
+    
+    def put_retention_policy(self, log_group_name: str, retention_in_days: int) -> bool:
+        """
+        Set the retention policy for a log group.
+        
+        Args:
+            log_group_name: Name of the log group
+            retention_in_days: Number of days to retain logs
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            self.logs_client.put_retention_policy(
+                logGroupName=log_group_name,
+                retentionInDays=retention_in_days
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting retention policy for {log_group_name}: {str(e)}")
+            return False
+    
+    def delete_retention_policy(self, log_group_name: str) -> bool:
+        """
+        Delete the retention policy for a log group.
+        
+        Args:
+            log_group_name: Name of the log group
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            self.logs_client.delete_retention_policy(
+                logGroupName=log_group_name
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deleting retention policy for {log_group_name}: {str(e)}")
+            return False
+    
+    def get_log_group_metrics(self, log_group_name: str, start_time: datetime.datetime, 
+                             end_time: datetime.datetime, period: int = 3600) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get metrics for a log group.
+        
+        Args:
+            log_group_name: Name of the log group
+            start_time: Start time for metrics
+            end_time: End time for metrics
+            period: Period in seconds (default: 3600 = 1 hour)
+            
+        Returns:
+            Dict[str, List[Dict[str, Any]]]: Metrics data
+        """
+        try:
+            cloudwatch = boto3.client('cloudwatch', region_name=self.region)
+            
+            # Get incoming log events
+            incoming_logs_response = cloudwatch.get_metric_statistics(
+                Namespace='AWS/Logs',
+                MetricName='IncomingLogEvents',
+                Dimensions=[
+                    {
+                        'Name': 'LogGroupName',
+                        'Value': log_group_name
+                    },
+                ],
+                StartTime=start_time,
+                EndTime=end_time,
+                Period=period,
+                Statistics=['Sum']
+            )
+            
+            # Get incoming bytes
+            incoming_bytes_response = cloudwatch.get_metric_statistics(
+                Namespace='AWS/Logs',
+                MetricName='IncomingBytes',
+                Dimensions=[
+                    {
+                        'Name': 'LogGroupName',
+                        'Value': log_group_name
+                    },
+                ],
+                StartTime=start_time,
+                EndTime=end_time,
+                Period=period,
+                Statistics=['Sum']
+            )
+            
+            return {
+                'IncomingLogEvents': incoming_logs_response.get('Datapoints', []),
+                'IncomingBytes': incoming_bytes_response.get('Datapoints', [])
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting metrics for {log_group_name}: {str(e)}")
+            return {
+                'IncomingLogEvents': [],
+                'IncomingBytes': []
+            }

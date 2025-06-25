@@ -33,7 +33,7 @@ from components.memory_chart import render_memory_chart
 from components.error_analysis import render_error_analysis, render_error_correlation
 from components.log_explorer import render_log_explorer
 from components.lambda_functions import render_lambda_functions, render_lambda_metrics
-from components.log_explorer import render_log_explorer
+from components.log_groups import render_log_groups
 from components.theme_toggle import render_theme_toggle
 
 # Set page configuration
@@ -287,6 +287,11 @@ def load_css():
     with open(css_file, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     
+    # Load enhanced UI CSS
+    enhanced_ui_css_file = os.path.join(os.path.dirname(__file__), "static/enhanced_ui.css")
+    with open(enhanced_ui_css_file, "r") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    
     # Load custom footer CSS
     footer_css_file = os.path.join(os.path.dirname(__file__), "static/custom_footer.css")
     with open(footer_css_file, "r") as f:
@@ -430,8 +435,9 @@ def main():
         <div class='stcard'>
         """, unsafe_allow_html=True)
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "📊 **Dashboard**", 
+            "📚 **Log Groups**",
             "🔍 **Log Explorer**",
             "⚡ **Lambda Functions**",
             "📈 **Lambda Metrics**",
@@ -500,8 +506,12 @@ def main():
                     "No log data available. Please fetch logs using the sidebar controls."
                 )
         
-        # Log Explorer tab
+        # Log Groups tab
         with tab2:
+            render_log_groups(st.session_state.aws_client)
+        
+        # Log Explorer tab
+        with tab3:
             if st.session_state.log_data is not None and not st.session_state.log_data.empty:
                 render_log_explorer(st.session_state.log_data)
             else:
@@ -510,15 +520,15 @@ def main():
                 )
         
         # Lambda Functions tab
-        with tab3:
+        with tab4:
             render_lambda_functions(st.session_state.lambda_client)
         
         # Lambda Metrics tab
-        with tab4:
+        with tab5:
             render_lambda_metrics(st.session_state.lambda_client)
         
         # Settings tab
-        with tab5:
+        with tab6:
             st.header("Settings")
             
             # About section
@@ -529,6 +539,7 @@ def main():
                 <h3>🚀 Features</h3>
                 <ul>
                     <li><strong>CloudWatch Logs Analysis</strong>: Analyze logs from multiple log groups with advanced filtering</li>
+                    <li><strong>Log Group Management</strong>: Browse, search, and manage CloudWatch Log Groups with detailed metrics</li>
                     <li><strong>Lambda Function Management</strong>: View, manage, and test Lambda functions directly from the UI</li>
                     <li><strong>Function Invocation with Logs</strong>: Invoke Lambda functions and view both responses and execution logs</li>
                     <li><strong>Performance Metrics</strong>: Visualize invocation patterns, durations, and memory usage</li>
