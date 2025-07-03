@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}CloudWatch Logs & Lambda Analyzer - Log Groups{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-file-alt"></i> CloudWatch Log Groups</h1>
+        <div>
+            <span class="badge bg-primary">Region: {{ session.get('aws_region') }}</span>
+            {% if session.get('aws_profile') %}
+            <span class="badge bg-secondary">Profile: {{ session.get('aws_profile') }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Log Groups</h5>
+                    <div>
+                        <input type="text" id="logGroupSearch" class="form-control form-control-sm" placeholder="Search log groups...">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="logGroupsTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Creation Time</th>
+                                    <th>Size</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logGroupsTableBody">
+                                <tr>
+                                    <td colspan="4" class="text-center">Loading log groups...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Events Modal -->
+    <div class="modal fade" id="logEventsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logEventsModalTitle">Log Events</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="logStreamSelect" class="form-label">Log Stream</label>
+                        <select class="form-select" id="logStreamSelect">
+                            <option value="">Select a log stream...</option>
+                        </select>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="logEventsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 200px;">Timestamp</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logEventsTableBody">
+                                <tr>
+                                    <td colspan="2" class="text-center">Select a log stream to view events</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load log groups
+        fetch('/api/log-groups')
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.getElementById('logGroupsTableBody');
+                tableBody.innerHTML = '';
+                
+                if (data.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No log groups found</td></tr>';
+                    return;
+                }
+                
+                data.forEach(logGroup => {
+                    const row = document.createElement('tr');
+                    
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = logGroup.name;
+                    
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = logGroup.creationTime;
+                    
+                    const sizeCell = document.createElement('td');
+                    const sizeMB = (logGroup.storedBytes / 1024 / 1024).toFixed(2);
+                    sizeCell.textContent = sizeMB + ' MB';
+                    
+                    const actionsCell = document.createElement('td');
+                    const viewButton = document.createElement('button');
+                    viewButton.className = 'btn btn-sm btn-primary';
+                    viewButton.innerHTML = '<i class="fas fa-eye"></i> View';
+                    viewButton.onclick = function() {
+                        openLogEventsModal(logGroup.name);
+                    };
+                    actionsCell.appendChild(viewButton);
+                    
+                    row.appendChild(nameCell);
+                    row.appendChild(timeCell);
+                    row.appendChild(sizeCell);
+                    row.appendChild(actionsCell);
+                    
+                    tableBody.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching log groups:', error);
+                const tableBody = document.getElementById('logGroupsTableBody');
+                tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error loading log groups: ${error.message}</td></tr>`;
+            });
+            
+        // Search functionality
+        document.getElementById('logGroupSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#logGroupsTableBody tr');
+            
+            rows.forEach(row => {
+                const name = row.cells[0].textContent.toLowerCase();
+                if (name.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+        
+        // Function to open log events modal
+        window.openLogEventsModal = function(logGroupName) {
+            const modal = new bootstrap.Modal(document.getElementById('logEventsModal'));
+            document.getElementById('logEventsModalTitle').textContent = 'Log Events: ' + logGroupName;
+            
+            // Clear previous data
+            document.getElementById('logStreamSelect').innerHTML = '<option value="">Select a log stream...</option>';
+            document.getElementById('logEventsTableBody').innerHTML = '<tr><td colspan="2" class="text-center">Select a log stream to view events</td></tr>';
+            
+            // Fetch log streams for the selected log group
+            // This would be implemented with a real API endpoint in a complete application
+            // For now, we'll just show a placeholder
+            
+            // Simulate loading log streams
+            setTimeout(() => {
+                const logStreamSelect = document.getElementById('logStreamSelect');
+                
+                // Add some sample log streams
+                const streams = [
+                    'stream-1',
+                    'stream-2',
+                    'stream-3'
+                ];
+                
+                streams.forEach(stream => {
+                    const option = document.createElement('option');
+                    option.value = stream;
+                    option.textContent = stream;
+                    logStreamSelect.appendChild(option);
+                });
+                
+                // Add event listener for log stream selection
+                logStreamSelect.addEventListener('change', function() {
+                    const selectedStream = this.value;
+                    if (!selectedStream) return;
+                    
+                    document.getElementById('logEventsTableBody').innerHTML = '<tr><td colspan="2" class="text-center">Loading log events...</td></tr>';
+                    
+                    // Simulate loading log events
+                    setTimeout(() => {
+                        const eventsTableBody = document.getElementById('logEventsTableBody');
+                        eventsTableBody.innerHTML = '';
+                        
+                        // Add some sample log events
+                        const events = [
+                            { timestamp: '2025-07-01 12:00:00', message: 'Application started' },
+                            { timestamp: '2025-07-01 12:00:05', message: 'Processing request' },
+                            { timestamp: '2025-07-01 12:00:10', message: 'Request completed successfully' }
+                        ];
+                        
+                        events.forEach(event => {
+                            const row = document.createElement('tr');
+                            
+                            const timestampCell = document.createElement('td');
+                            timestampCell.textContent = event.timestamp;
+                            
+                            const messageCell = document.createElement('td');
+                            messageCell.textContent = event.message;
+                            
+                            row.appendChild(timestampCell);
+                            row.appendChild(messageCell);
+                            
+                            eventsTableBody.appendChild(row);
+                        });
+                    }, 500);
+                });
+            }, 500);
+            
+            modal.show();
+        };
+    });
+</script>
+{% endblock %}

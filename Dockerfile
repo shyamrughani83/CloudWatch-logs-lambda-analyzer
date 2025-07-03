@@ -2,7 +2,7 @@
 FROM python:3.9-slim AS builder
 
 WORKDIR /app
-COPY requirements.txt .
+COPY requirements-flask.txt ./requirements.txt
 
 # Create virtual environment and install dependencies
 RUN python -m venv /opt/venv && \
@@ -16,8 +16,8 @@ WORKDIR /app
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    STREAMLIT_SERVER_PORT=8501 \
-    STREAMLIT_SERVER_HEADLESS=true
+    FLASK_APP=app.py \
+    FLASK_ENV=production
 
 # Create non-root user
 RUN useradd -m appuser && \
@@ -33,5 +33,5 @@ COPY --chown=appuser:appuser . .
 USER appuser
 EXPOSE 8501
 
-ENTRYPOINT ["streamlit", "run"]
-CMD ["app.py", "--server.address=0.0.0.0"]
+# Run with gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8501", "--workers", "2", "--timeout", "60", "app:app"]

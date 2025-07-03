@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}CloudWatch Logs & Lambda Analyzer - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>CloudWatch Logs & Lambda Analyzer</h1>
+    <p>Region: {{ region }}</p>
+
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab" aria-controls="logs" aria-selected="true">Logs</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="lambda-tab" data-bs-toggle="tab" data-bs-target="#lambda" type="button" role="tab" aria-controls="lambda" aria-selected="false">Lambda Functions</button>
+        </li>
+    </ul>
+    
+    <div class="tab-content" id="myTabContent">
+        <!-- Logs Tab -->
+        <div class="tab-pane fade show active" id="logs" role="tabpanel" aria-labelledby="logs-tab">
+            <div class="mt-4">
+                <h2>Log Groups</h2>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Creation Time</th>
+                            <th>Size</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log_group in log_groups %}
+                        <tr>
+                            <td>{{ log_group.name }}</td>
+                            <td>{{ log_group.creationTime | int | strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ (log_group.storedBytes / 1024 / 1024) | round(2) }} MB</td>
+                            <td>
+                                <button class="btn btn-primary btn-sm" onclick="viewLogStreams('{{ log_group.name }}')">View Streams</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Lambda Tab -->
+        <div class="tab-pane fade" id="lambda" role="tabpanel" aria-labelledby="lambda-tab">
+            <div class="mt-4">
+                <h2>Lambda Functions</h2>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Runtime</th>
+                            <th>Memory</th>
+                            <th>Timeout</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for function in lambda_functions %}
+                        <tr>
+                            <td>{{ function.name }}</td>
+                            <td>{{ function.runtime }}</td>
+                            <td>{{ function.memory }} MB</td>
+                            <td>{{ function.timeout }} sec</td>
+                            <td>
+                                <button class="btn btn-primary btn-sm" onclick="invokeLambda('{{ function.name }}')">Invoke</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Streams Modal -->
+<div class="modal fade" id="logStreamsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Log Streams</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="logGroupName"></h6>
+                <div id="logStreamsContent">
+                    <p>Loading log streams...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lambda Invoke Modal -->
+<div class="modal fade" id="lambdaInvokeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Invoke Lambda Function</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="lambdaFunctionName"></h6>
+                <div class="mb-3">
+                    <label for="lambdaPayload" class="form-label">Payload (JSON)</label>
+                    <textarea class="form-control" id="lambdaPayload" rows="5">{ "key": "value" }</textarea>
+                </div>
+                <button type="button" class="btn btn-primary" id="invokeButton">Invoke</button>
+                
+                <div class="mt-4" id="lambdaResponseSection" style="display: none;">
+                    <ul class="nav nav-tabs" id="responseTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="response-tab" data-bs-toggle="tab" data-bs-target="#response" type="button" role="tab" aria-controls="response" aria-selected="true">Response</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs-content" type="button" role="tab" aria-controls="logs-content" aria-selected="false">Logs</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-2" id="responseTabsContent">
+                        <div class="tab-pane fade show active" id="response" role="tabpanel" aria-labelledby="response-tab">
+                            <pre id="lambdaResponse" class="bg-light p-3"></pre>
+                        </div>
+                        <div class="tab-pane fade" id="logs-content" role="tabpanel" aria-labelledby="logs-tab">
+                            <pre id="lambdaLogs" class="bg-light p-3"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Log Events Modal -->
+<div class="modal fade" id="logEventsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logEventsModalTitle">Log Events</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="logEventsContent">
+                    <p>Loading log events...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // View log streams
+    function viewLogStreams(logGroupName) {
+        const modal = new bootstrap.Modal(document.getElementById('logStreamsModal'));
+        document.getElementById('logGroupName').textContent = logGroupName;
+        document.getElementById('logStreamsContent').innerHTML = '<p>Loading log streams...</p>';
+        
+        fetch(`/api/log-streams?log_group_name=${encodeURIComponent(logGroupName)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load log streams');
+                }
+                
+                const streams = result.data;
+                if (streams.length === 0) {
+                    document.getElementById('logStreamsContent').innerHTML = '<p>No log streams found</p>';
+                    return;
+                }
+                
+                let html = '<ul class="list-group">';
+                streams.forEach(stream => {
+                    html += `<li class="list-group-item">
+                        <a href="#" onclick="viewLogEvents('${logGroupName}', '${stream.name}'); return false;">
+                            ${stream.name}
+                        </a>
+                    </li>`;
+                });
+                html += '</ul>';
+                
+                document.getElementById('logStreamsContent').innerHTML = html;
+            })
+            .catch(error => {
+                document.getElementById('logStreamsContent').innerHTML = 
+                    `<div class="alert alert-danger">${error.message}</div>`;
+            });
+        
+        modal.show();
+    }
+    
+    // View log events
+    function viewLogEvents(logGroupName, logStreamName) {
+        const modal = new bootstrap.Modal(document.getElementById('logEventsModal'));
+        document.getElementById('logEventsModalTitle').textContent = `Log Events: ${logStreamName}`;
+        document.getElementById('logEventsContent').innerHTML = '<p>Loading log events...</p>';
+        
+        fetch(`/api/log-events?log_group_name=${encodeURIComponent(logGroupName)}&log_stream_name=${encodeURIComponent(logStreamName)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load log events');
+                }
+                
+                const events = result.data;
+                if (events.length === 0) {
+                    document.getElementById('logEventsContent').innerHTML = '<p>No log events found</p>';
+                    return;
+                }
+                
+                let html = '<div class="table-responsive"><table class="table table-striped">';
+                html += '<thead><tr><th>Timestamp</th><th>Message</th></tr></thead><tbody>';
+                
+                events.forEach(event => {
+                    html += `<tr>
+                        <td>${event.timestamp}</td>
+                        <td><pre class="mb-0" style="white-space: pre-wrap;">${event.message}</pre></td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                
+                document.getElementById('logEventsContent').innerHTML = html;
+            })
+            .catch(error => {
+                document.getElementById('logEventsContent').innerHTML = 
+                    `<div class="alert alert-danger">${error.message}</div>`;
+            });
+        
+        modal.show();
+    }
+    
+    // Invoke Lambda function
+    function invokeLambda(functionName) {
+        const modal = new bootstrap.Modal(document.getElementById('lambdaInvokeModal'));
+        document.getElementById('lambdaFunctionName').textContent = functionName;
+        document.getElementById('lambdaResponseSection').style.display = 'none';
+        
+        document.getElementById('invokeButton').onclick = function() {
+            const payload = document.getElementById('lambdaPayload').value;
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Invoking...';
+            
+            fetch('/api/invoke-lambda', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    function_name: functionName,
+                    payload: payload
+                }),
+            })
+            .then(response => response.json())
+            .then(result => {
+                this.disabled = false;
+                this.innerHTML = 'Invoke';
+                
+                document.getElementById('lambdaResponseSection').style.display = 'block';
+                
+                if (!result.success) {
+                    document.getElementById('lambdaResponse').textContent = JSON.stringify({
+                        error: result.error
+                    }, null, 2);
+                    document.getElementById('lambdaLogs').textContent = 'No logs available';
+                    return;
+                }
+                
+                const responseData = result.data;
+                
+                // Display the response payload
+                try {
+                    // Try to parse the payload as JSON
+                    const jsonPayload = JSON.parse(responseData.payload);
+                    document.getElementById('lambdaResponse').textContent = JSON.stringify(jsonPayload, null, 2);
+                } catch (e) {
+                    // If not valid JSON, display as is
+                    document.getElementById('lambdaResponse').textContent = responseData.payload;
+                }
+                
+                // Display the logs
+                if (responseData.logResult) {
+                    try {
+                        // Decode base64 logs
+                        const decodedLogs = atob(responseData.logResult);
+                        document.getElementById('lambdaLogs').textContent = decodedLogs;
+                    } catch (e) {
+                        document.getElementById('lambdaLogs').textContent = 'Error decoding logs: ' + e.message;
+                    }
+                } else {
+                    document.getElementById('lambdaLogs').textContent = 'No logs available';
+                }
+            })
+            .catch(error => {
+                this.disabled = false;
+                this.innerHTML = 'Invoke';
+                
+                document.getElementById('lambdaResponseSection').style.display = 'block';
+                document.getElementById('lambdaResponse').textContent = JSON.stringify({
+                    error: error.message
+                }, null, 2);
+                document.getElementById('lambdaLogs').textContent = 'No logs available';
+            });
+        };
+        
+        modal.show();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}CloudWatch Logs & Lambda Analyzer - Connect to AWS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        min-height: calc(100vh - 200px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    .login-card {
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .login-card .card-header {
+        background: linear-gradient(135deg, #FF9900 0%, #FFC107 100%);
+        padding: 2rem 1.5rem;
+        text-align: center;
+        border-bottom: none;
+    }
+    .login-card .card-body {
+        padding: 2.5rem;
+    }
+    .login-card .card-footer {
+        background-color: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        padding: 1.25rem;
+        text-align: center;
+    }
+    .aws-logo {
+        max-width: 180px;
+        margin-bottom: 1.5rem;
+    }
+    .form-control, .form-select {
+        height: 50px;
+        font-size: 1rem;
+    }
+    .btn-connect {
+        height: 50px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #FF9900 0%, #FFC107 100%);
+        border: none;
+        box-shadow: 0 4px 6px rgba(255, 153, 0, 0.3);
+    }
+    .btn-connect:hover {
+        background: linear-gradient(135deg, #FFC107 0%, #FF9900 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 8px rgba(255, 153, 0, 0.4);
+    }
+    .features {
+        margin-top: 3rem;
+    }
+    .feature-item {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 8px;
+        background-color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s, box-shadow 0.3s;
+        height: 100%;
+    }
+    .feature-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: #FF9900;
+    }
+    .hero-section {
+        background: linear-gradient(135deg, #232F3E 0%, #131921 100%);
+        color: white;
+        padding: 4rem 0;
+        margin-bottom: 3rem;
+    }
+    .hero-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    .hero-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.8;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="hero-title">CloudWatch Logs & Lambda Analyzer</h1>
+                <p class="hero-subtitle">A powerful tool for analyzing AWS CloudWatch logs and Lambda functions with advanced visualization and insights.</p>
+                <div class="d-flex">
+                    <a href="#connect-form" class="btn btn-warning btn-lg me-3">
+                        <i class="fas fa-plug"></i> Connect to AWS
+                    </a>
+                    <a href="https://aws.amazon.com/cloudwatch/" target="_blank" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-book"></i> Learn More
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <img src="{{ url_for('static', filename='img/aws-logo.png') }}" alt="AWS Logo" class="img-fluid" style="max-width: 300px;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h4>Multi-log Group Analysis</h4>
+                <p class="text-muted">Select and analyze multiple log groups simultaneously with powerful filtering capabilities.</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-code"></i>
+                </div>
+                <h4>Lambda Integration</h4>
+                <p class="text-muted">Invoke and monitor Lambda functions directly from the web interface with detailed metrics.</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h4>Interactive Visualizations</h4>
+                <p class="text-muted">Explore your logs and Lambda metrics with interactive charts and real-time monitoring.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="login-container" id="connect-form">
+        <div class="login-card">
+            <div class="card-header">
+                <img src="{{ url_for('static', filename='img/aws-logo.png') }}" alt="AWS Logo" class="aws-logo" style="max-width: 180px; margin-bottom: 1rem;">
+                <h3 class="text-white">Connect to AWS</h3>
+                <p class="text-white-50 mb-0">Connect to your AWS account to analyze CloudWatch logs and Lambda functions</p>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('main.index') }}">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-4">
+                        <label for="region" class="form-label">{{ form.region.label }}</label>
+                        {{ form.region(class="form-select") }}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="profile" class="form-label">{{ form.profile.label }}</label>
+                        {{ form.profile(class="form-control", placeholder="default") }}
+                        <div class="form-text">Leave empty to use the default profile</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {{ form.submit(class="btn btn-warning btn-lg btn-connect") }}
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex align-items-center justify-content-center">
+                    <i class="fas fa-info-circle me-2 text-primary"></i>
+                    <span>Make sure you have AWS credentials configured in ~/.aws/credentials</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

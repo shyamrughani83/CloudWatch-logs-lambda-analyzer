@@ -1,15 +1,35 @@
 /* Custom footer styling */
-footer {
-    visibility: hidden;
+.footer {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #545B64;
+    padding: 1rem;
+    border-top: 1px solid #eaeaea;
+    background-color: #f8f9fa;
+    border-radius: 0 0 8px 8px;
 }
 
-footer:after {
-    content: 'StreamLit Made by Shyam Rughani (Cloud Man)';
-    visibility: visible;
-    display: block;
-    position: relative;
-    padding: 5px;
-    text-align: center;
-    font-size: 14px;
-    color: #666;
+.footer p {
+    margin: 0.25rem 0;
+}
+
+.footer a {
+    color: #FF9900;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+.aws-powered {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+.aws-powered img {
+    height: 1.2rem;
 }

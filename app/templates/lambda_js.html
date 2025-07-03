@@ -1,0 +1,497 @@
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sample Lambda functions data (would be replaced with real API data)
+        const sampleFunctions = [
+            {
+                name: "process-orders",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:process-orders",
+                runtime: "nodejs18.x",
+                memory: 256,
+                timeout: 30,
+                lastModified: "2025-06-15T10:30:00.000+0000",
+                handler: "index.handler",
+                description: "Processes incoming orders from SQS queue",
+                role: "arn:aws:iam::123456789012:role/lambda-orders-role"
+            },
+            {
+                name: "generate-reports",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:generate-reports",
+                runtime: "python3.9",
+                memory: 512,
+                timeout: 60,
+                lastModified: "2025-06-20T14:15:00.000+0000",
+                handler: "app.lambda_handler",
+                description: "Generates daily sales reports",
+                role: "arn:aws:iam::123456789012:role/lambda-reports-role"
+            },
+            {
+                name: "process-images",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:process-images",
+                runtime: "python3.9",
+                memory: 1024,
+                timeout: 120,
+                lastModified: "2025-06-25T09:45:00.000+0000",
+                handler: "image_processor.handler",
+                description: "Processes and resizes uploaded images",
+                role: "arn:aws:iam::123456789012:role/lambda-images-role"
+            },
+            {
+                name: "auth-service",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:auth-service",
+                runtime: "nodejs16.x",
+                memory: 256,
+                timeout: 10,
+                lastModified: "2025-06-10T11:20:00.000+0000",
+                handler: "auth.handler",
+                description: "Handles user authentication",
+                role: "arn:aws:iam::123456789012:role/lambda-auth-role"
+            },
+            {
+                name: "data-processor",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:data-processor",
+                runtime: "java11",
+                memory: 512,
+                timeout: 60,
+                lastModified: "2025-06-18T16:30:00.000+0000",
+                handler: "com.example.DataProcessor::handleRequest",
+                description: "Processes data from Kinesis stream",
+                role: "arn:aws:iam::123456789012:role/lambda-data-role"
+            }
+        ];
+
+        // Load Lambda functions
+        function loadLambdaFunctions() {
+            // In a real app, this would fetch from the API
+            // fetch('/api/lambda-functions')
+            //     .then(response => response.json())
+            //     .then(data => {
+            //         populateLambdaFunctions(data);
+            //     })
+            //     .catch(error => {
+            //         console.error('Error fetching Lambda functions:', error);
+            //         showError('Failed to load Lambda functions');
+            //     });
+            
+            // Using sample data for demonstration
+            setTimeout(() => {
+                populateLambdaFunctions(sampleFunctions);
+            }, 500);
+        }
+
+        // Populate Lambda functions table and grid
+        function populateLambdaFunctions(functions) {
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            
+            tableBody.innerHTML = '';
+            gridContainer.innerHTML = '';
+            
+            if (functions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No Lambda functions found</td></tr>';
+                gridContainer.innerHTML = '<div class="col-12 text-center">No Lambda functions found</div>';
+                return;
+            }
+            
+            // Populate table view
+            functions.forEach(func => {
+                const row = document.createElement('tr');
+                
+                const nameCell = document.createElement('td');
+                nameCell.textContent = func.name;
+                
+                const runtimeCell = document.createElement('td');
+                const runtimeBadge = document.createElement('span');
+                runtimeBadge.className = getRuntimeBadgeClass(func.runtime);
+                runtimeBadge.textContent = func.runtime;
+                runtimeCell.appendChild(runtimeBadge);
+                
+                const memoryCell = document.createElement('td');
+                memoryCell.textContent = func.memory + ' MB';
+                
+                const timeoutCell = document.createElement('td');
+                timeoutCell.textContent = func.timeout + ' sec';
+                
+                const modifiedCell = document.createElement('td');
+                modifiedCell.textContent = formatDate(func.lastModified);
+                
+                const actionsCell = document.createElement('td');
+                
+                const invokeButton = document.createElement('button');
+                invokeButton.className = 'btn btn-sm btn-primary me-1';
+                invokeButton.innerHTML = '<i class="fas fa-play"></i>';
+                invokeButton.title = 'Invoke';
+                invokeButton.onclick = function() {
+                    openLambdaInvokeModal(func);
+                };
+                
+                const metricsButton = document.createElement('button');
+                metricsButton.className = 'btn btn-sm btn-info me-1';
+                metricsButton.innerHTML = '<i class="fas fa-chart-line"></i>';
+                metricsButton.title = 'Metrics';
+                metricsButton.onclick = function() {
+                    openLambdaMetricsModal(func.name);
+                };
+                
+                actionsCell.appendChild(invokeButton);
+                actionsCell.appendChild(metricsButton);
+                
+                row.appendChild(nameCell);
+                row.appendChild(runtimeCell);
+                row.appendChild(memoryCell);
+                row.appendChild(timeoutCell);
+                row.appendChild(modifiedCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Populate grid view
+            functions.forEach(func => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 col-lg-3 mb-4';
+                
+                const card = document.createElement('div');
+                card.className = 'card function-card h-100';
+                
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                
+                const runtime = document.createElement('span');
+                runtime.className = getRuntimeBadgeClass(func.runtime);
+                runtime.textContent = func.runtime;
+                
+                const name = document.createElement('h5');
+                name.className = 'card-title mt-2';
+                name.textContent = func.name;
+                
+                const description = document.createElement('p');
+                description.className = 'card-text text-muted small';
+                description.textContent = func.description || 'No description';
+                
+                const details = document.createElement('div');
+                details.className = 'mt-2';
+                details.innerHTML = `
+                    <div><strong>Memory:</strong> ${func.memory} MB</div>
+                    <div><strong>Timeout:</strong> ${func.timeout} sec</div>
+                    <div><strong>Modified:</strong> ${formatDate(func.lastModified)}</div>
+                `;
+                
+                const actions = document.createElement('div');
+                actions.className = 'mt-3';
+                actions.innerHTML = `
+                    <button class="btn btn-sm btn-primary me-1" onclick="openLambdaInvokeModal(${JSON.stringify(func).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-play"></i> Invoke
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="openLambdaMetricsModal('${func.name}')">
+                        <i class="fas fa-chart-line"></i> Metrics
+                    </button>
+                `;
+                
+                cardBody.appendChild(runtime);
+                cardBody.appendChild(name);
+                cardBody.appendChild(description);
+                cardBody.appendChild(details);
+                cardBody.appendChild(actions);
+                
+                card.appendChild(cardBody);
+                col.appendChild(card);
+                
+                gridContainer.appendChild(col);
+            });
+        }
+        
+        // Get runtime badge class based on runtime
+        function getRuntimeBadgeClass(runtime) {
+            let baseClass = 'runtime-badge ';
+            
+            if (runtime.includes('nodejs')) {
+                return baseClass + 'nodejs-badge';
+            } else if (runtime.includes('python')) {
+                return baseClass + 'python-badge';
+            } else if (runtime.includes('java')) {
+                return baseClass + 'java-badge';
+            } else if (runtime.includes('dotnet')) {
+                return baseClass + 'dotnet-badge';
+            } else if (runtime.includes('go')) {
+                return baseClass + 'go-badge';
+            } else if (runtime.includes('ruby')) {
+                return baseClass + 'ruby-badge';
+            } else {
+                return baseClass + 'custom-badge';
+            }
+        }
+        
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        // Search functionality
+        document.getElementById('lambdaSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            // Search in table view
+            const tableRows = document.querySelectorAll('#lambdaFunctionsTableBody tr');
+            tableRows.forEach(row => {
+                if (row.cells.length < 2) return; // Skip placeholder rows
+                
+                const name = row.cells[0].textContent.toLowerCase();
+                const runtime = row.cells[1].textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || runtime.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Search in grid view
+            const gridCards = document.querySelectorAll('#lambdaFunctionsGrid .col-md-4');
+            gridCards.forEach(card => {
+                const name = card.querySelector('.card-title').textContent.toLowerCase();
+                const runtime = card.querySelector('.runtime-badge').textContent.toLowerCase();
+                const description = card.querySelector('.card-text').textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || runtime.includes(searchTerm) || description.includes(searchTerm)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+        
+        // Refresh button
+        document.getElementById('refreshFunctions').addEventListener('click', function() {
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+            
+            // Simulate refresh
+            setTimeout(() => {
+                loadLambdaFunctions();
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+            }, 1000);
+        });
+        
+        // Function to open Lambda invoke modal
+        window.openLambdaInvokeModal = function(func) {
+            const modal = new bootstrap.Modal(document.getElementById('lambdaInvokeModal'));
+            document.getElementById('lambdaInvokeModalTitle').textContent = 'Invoke Lambda Function: ' + func.name;
+            document.getElementById('lambdaResponseSection').style.display = 'none';
+            
+            // Populate function details
+            document.getElementById('functionDetailName').textContent = func.name;
+            document.getElementById('functionDetailRuntime').textContent = func.runtime;
+            document.getElementById('functionDetailHandler').textContent = func.handler;
+            document.getElementById('functionDetailDescription').textContent = func.description || 'No description';
+            document.getElementById('functionDetailMemory').textContent = func.memory + ' MB';
+            document.getElementById('functionDetailTimeout').textContent = func.timeout + ' seconds';
+            document.getElementById('functionDetailLastModified').textContent = formatDate(func.lastModified);
+            document.getElementById('functionDetailRole').textContent = func.role;
+            
+            // Set up invoke button
+            document.getElementById('invokeLambdaBtn').onclick = function() {
+                const payload = document.getElementById('lambdaPayload').value;
+                
+                // Show loading state
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Invoking...';
+                
+                // Simulate Lambda invocation
+                setTimeout(() => {
+                    // Reset button state
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-play"></i> Invoke Function';
+                    
+                    // Show response section
+                    document.getElementById('lambdaResponseSection').style.display = 'block';
+                    
+                    // Populate response content
+                    document.getElementById('lambdaResponseContent').textContent = JSON.stringify({
+                        statusCode: 200,
+                        body: {
+                            message: "Function executed successfully",
+                            timestamp: new Date().toISOString(),
+                            input: JSON.parse(payload)
+                        }
+                    }, null, 2);
+                    
+                    // Populate logs content with detailed, formatted logs
+                    const logsContainer = document.getElementById('lambdaLogsContent');
+                    logsContainer.innerHTML = '';
+                    
+                    // Sample detailed logs
+                    const logs = [
+                        { timestamp: '2025-07-02T12:00:00.000Z', level: 'INFO', message: 'START RequestId: 6bc28136-xmpl-4365-b021-0ce6b2e64ab0 Version: $LATEST' },
+                        { timestamp: '2025-07-02T12:00:00.050Z', level: 'INFO', message: 'Event received: ' + payload },
+                        { timestamp: '2025-07-02T12:00:00.100Z', level: 'INFO', message: 'Processing event data...' },
+                        { timestamp: '2025-07-02T12:00:00.150Z', level: 'INFO', message: 'Connecting to database...' },
+                        { timestamp: '2025-07-02T12:00:00.200Z', level: 'INFO', message: 'Database connection established' },
+                        { timestamp: '2025-07-02T12:00:00.250Z', level: 'INFO', message: 'Querying data...' },
+                        { timestamp: '2025-07-02T12:00:00.300Z', level: 'INFO', message: 'Query completed successfully' },
+                        { timestamp: '2025-07-02T12:00:00.350Z', level: 'INFO', message: 'Processing results...' },
+                        { timestamp: '2025-07-02T12:00:00.400Z', level: 'WARN', message: 'Found 2 records with missing fields' },
+                        { timestamp: '2025-07-02T12:00:00.450Z', level: 'INFO', message: 'Applying data transformations...' },
+                        { timestamp: '2025-07-02T12:00:00.500Z', level: 'INFO', message: 'Transformations complete' },
+                        { timestamp: '2025-07-02T12:00:00.550Z', level: 'INFO', message: 'Generating response...' },
+                        { timestamp: '2025-07-02T12:00:00.600Z', level: 'INFO', message: 'Response generated successfully' },
+                        { timestamp: '2025-07-02T12:00:00.650Z', level: 'INFO', message: 'END RequestId: 6bc28136-xmpl-4365-b021-0ce6b2e64ab0' },
+                        { timestamp: '2025-07-02T12:00:00.700Z', level: 'INFO', message: 'REPORT RequestId: 6bc28136-xmpl-4365-b021-0ce6b2e64ab0\tDuration: 123.45 ms\tBilled Duration: 124 ms\tMemory Size: ' + func.memory + ' MB\tMax Memory Used: ' + Math.floor(func.memory * 0.65) + ' MB\tInit Duration: 145.23 ms' }
+                    ];
+                    
+                    logs.forEach(log => {
+                        const logLine = document.createElement('div');
+                        logLine.className = 'log-line';
+                        
+                        const timestamp = document.createElement('span');
+                        timestamp.className = 'log-timestamp';
+                        timestamp.textContent = log.timestamp;
+                        
+                        const level = document.createElement('span');
+                        level.className = 'log-level-' + log.level;
+                        level.textContent = log.level + ': ';
+                        
+                        const message = document.createElement('span');
+                        message.textContent = log.message;
+                        
+                        logLine.appendChild(timestamp);
+                        logLine.appendChild(level);
+                        logLine.appendChild(message);
+                        
+                        logsContainer.appendChild(logLine);
+                    });
+                    
+                    // Populate metrics
+                    const duration = 123.45;
+                    const billedDuration = 124;
+                    const memoryUsed = Math.floor(func.memory * 0.65);
+                    const memorySize = func.memory;
+                    const memoryPercentage = Math.floor((memoryUsed / memorySize) * 100);
+                    
+                    document.getElementById('executionDuration').textContent = duration + ' ms';
+                    document.getElementById('billedDuration').textContent = 'Billed: ' + billedDuration + ' ms';
+                    document.getElementById('memoryUsed').textContent = memoryUsed + ' MB';
+                    document.getElementById('memorySize').textContent = 'Size: ' + memorySize + ' MB';
+                    document.getElementById('memoryUsedBar').style.width = memoryPercentage + '%';
+                }, 1500);
+            };
+            
+            modal.show();
+        };
+        
+        // Function to open Lambda metrics modal
+        window.openLambdaMetricsModal = function(functionName) {
+            const modal = new bootstrap.Modal(document.getElementById('lambdaMetricsModal'));
+            document.getElementById('lambdaMetricsModalTitle').textContent = 'Lambda Metrics: ' + functionName;
+            
+            modal.show();
+            
+            // Generate sample data for charts
+            const dates = [];
+            const invocations = [];
+            const durations = [];
+            const errors = [];
+            const memory = [];
+            
+            // Generate data for the last 7 days
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(date.toISOString().split('T')[0]);
+                
+                // Random data for demonstration
+                invocations.push(Math.floor(Math.random() * 100) + 10);
+                durations.push(Math.floor(Math.random() * 200) + 50);
+                errors.push(Math.floor(Math.random() * 5));
+                memory.push(Math.floor(Math.random() * 50) + 50);
+            }
+            
+            // Create charts
+            Plotly.newPlot('invocationsChart', [{
+                x: dates,
+                y: invocations,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Invocations',
+                line: {
+                    color: 'rgb(55, 128, 191)',
+                    width: 2
+                },
+                marker: {
+                    size: 8
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Count' }
+            });
+            
+            Plotly.newPlot('durationChart', [{
+                x: dates,
+                y: durations,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Duration',
+                line: {
+                    color: 'rgb(50, 171, 96)',
+                    width: 2
+                },
+                marker: {
+                    size: 8
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Duration (ms)' }
+            });
+            
+            Plotly.newPlot('errorsChart', [{
+                x: dates,
+                y: errors,
+                type: 'bar',
+                name: 'Errors',
+                marker: {
+                    color: 'rgb(219, 64, 82)'
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Count' }
+            });
+            
+            Plotly.newPlot('memoryChart', [{
+                x: dates,
+                y: memory,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Memory Usage',
+                line: {
+                    color: 'rgb(128, 0, 128)',
+                    width: 2
+                },
+                marker: {
+                    size: 8
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Memory (MB)' }
+            });
+        };
+        
+        // Show error message
+        function showError(message) {
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${message}</td></tr>`;
+            
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            gridContainer.innerHTML = `<div class="col-12 text-center text-danger">${message}</div>`;
+        }
+        
+        // Load Lambda functions on page load
+        loadLambdaFunctions();
+    });
+</script>
+{% endblock %}

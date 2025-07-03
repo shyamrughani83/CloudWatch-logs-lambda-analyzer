@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
     image: cloudwatch-logs-analyzer:latest
     container_name: cloudwatch-logs-analyzer
+    command: ["gunicorn", "--bind", "0.0.0.0:8501", "--workers", "2", "--timeout", "60", "wsgi:app"]
     ports:
       - "8501:8501"
     volumes:
@@ -15,6 +16,7 @@ services:
     environment:
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_SDK_LOAD_CONFIG=1          # Enable loading config from ~/.aws/config
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-cloudwatch-logs-lambda-analyzer-secret-key}
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true         # Prevent privilege escalation

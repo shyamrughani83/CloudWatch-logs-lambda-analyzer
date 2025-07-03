@@ -1,0 +1,1160 @@
+{% extends "base.html" %}
+
+{% block title %}CloudWatch Logs & Lambda Analyzer - Lambda Functions{% endblock %}
+
+{% block extra_css %}
+<style>
+    .function-details {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .function-detail-item {
+        display: flex;
+        margin-bottom: 0.75rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.75rem;
+    }
+    .function-detail-label {
+        font-weight: 500;
+        width: 180px;
+        color: #6c757d;
+    }
+    .function-detail-value {
+        flex: 1;
+    }
+    .log-line {
+        padding: 4px 0;
+        border-bottom: 1px solid #f1f1f1;
+        font-family: monospace;
+    }
+    .log-timestamp {
+        color: #6c757d;
+        margin-right: 10px;
+    }
+    .log-level-INFO {
+        color: #0d6efd;
+        font-weight: 500;
+    }
+    .log-level-WARN {
+        color: #ffc107;
+        font-weight: 500;
+    }
+    .log-level-ERROR {
+        color: #dc3545;
+        font-weight: 500;
+    }
+    .runtime-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .nodejs-badge {
+        background-color: #68a063;
+        color: white;
+    }
+    .python-badge {
+        background-color: #3572A5;
+        color: white;
+    }
+    .java-badge {
+        background-color: #b07219;
+        color: white;
+    }
+    .dotnet-badge {
+        background-color: #512BD4;
+        color: white;
+    }
+    .go-badge {
+        background-color: #00ADD8;
+        color: white;
+    }
+    .ruby-badge {
+        background-color: #CC342D;
+        color: white;
+    }
+    .custom-badge {
+        background-color: #6c757d;
+        color: white;
+    }
+    .memory-indicator {
+        height: 8px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+        margin-top: 5px;
+        overflow: hidden;
+    }
+    .memory-used {
+        height: 100%;
+        background: linear-gradient(90deg, #0d6efd, #0a58ca);
+    }
+    .function-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+        height: 100%;
+    }
+    .function-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1><i class="fas fa-code"></i> Lambda Functions</h1>
+                <p>Manage, monitor, and invoke your AWS Lambda functions</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <span class="badge bg-light text-dark me-2">
+                    <i class="fas fa-map-marker-alt"></i> Region: {{ session.get('aws_region') }}
+                </span>
+                {% if session.get('aws_profile') %}
+                <span class="badge bg-light text-dark">
+                    <i class="fas fa-user"></i> Profile: {{ session.get('aws_profile') }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0"><i class="fas fa-code"></i> Lambda Functions</h5>
+                    </div>
+                    <div class="d-flex">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" id="lambdaSearch" class="form-control" placeholder="Search functions...">
+                        </div>
+                        <div class="ms-2">
+                            <button class="btn btn-outline-primary" id="refreshFunctions">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="lambdaFunctionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Runtime</th>
+                                    <th>Memory</th>
+                                    <th>Timeout</th>
+                                    <th>Last Modified</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lambdaFunctionsTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2">Loading Lambda functions...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lambda Function Grid View -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-th"></i> Grid View</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="lambdaFunctionsGrid">
+                        <div class="col-12 text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading Lambda functions...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lambda Invoke Modal -->
+    <div class="modal fade" id="lambdaInvokeModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="lambdaInvokeModalTitle">Invoke Lambda Function</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="function-details mb-4">
+                        <h5 class="mb-3">Function Configuration</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Function Name</div>
+                                    <div class="function-detail-value" id="functionDetailName">-</div>
+                                </div>
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Runtime</div>
+                                    <div class="function-detail-value" id="functionDetailRuntime">-</div>
+                                </div>
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Handler</div>
+                                    <div class="function-detail-value" id="functionDetailHandler">-</div>
+                                </div>
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Description</div>
+                                    <div class="function-detail-value" id="functionDetailDescription">-</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Memory</div>
+                                    <div class="function-detail-value" id="functionDetailMemory">-</div>
+                                </div>
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Timeout</div>
+                                    <div class="function-detail-value" id="functionDetailTimeout">-</div>
+                                </div>
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Last Modified</div>
+                                    <div class="function-detail-value" id="functionDetailLastModified">-</div>
+                                </div>
+                                <div class="function-detail-item">
+                                    <div class="function-detail-label">Role</div>
+                                    <div class="function-detail-value" id="functionDetailRole">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="mb-3">Invoke Function</h5>
+                        <div class="mb-3">
+                            <label for="lambdaPayload" class="form-label">Payload (JSON)</label>
+                            <textarea class="form-control" id="lambdaPayload" rows="8">{ 
+    "key": "value",
+    "message": "Hello from CloudWatch Logs & Lambda Analyzer",
+    "timestamp": "2025-07-02T12:00:00Z"
+}</textarea>
+                        </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-primary" id="invokeLambdaBtn">
+                                <i class="fas fa-play"></i> Invoke Function
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4" id="lambdaResponseSection" style="display: none;">
+                        <h5 class="mb-3">Response</h5>
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <ul class="nav nav-tabs card-header-tabs" id="lambdaResponseTabs">
+                                    <li class="nav-item">
+                                        <a class="nav-link active" data-bs-toggle="tab" href="#responseTab">Response</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-bs-toggle="tab" href="#logsTab">Logs</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-bs-toggle="tab" href="#metricsTab">Metrics</a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-body">
+                                <div class="tab-content">
+                                    <div class="tab-pane fade show active" id="responseTab">
+                                        <pre id="lambdaResponseContent" class="bg-light p-3 rounded"></pre>
+                                    </div>
+                                    <div class="tab-pane fade" id="logsTab">
+                                        <div class="log-viewer" id="lambdaLogsContent"></div>
+                                    </div>
+                                    <div class="tab-pane fade" id="metricsTab">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="card mb-3">
+                                                    <div class="card-header bg-light">
+                                                        <h6 class="mb-0">Duration</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <h3 id="executionDuration">0 ms</h3>
+                                                            <span class="badge bg-primary" id="billedDuration">Billed: 0 ms</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="card mb-3">
+                                                    <div class="card-header bg-light">
+                                                        <h6 class="mb-0">Memory Usage</h6>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                                            <h3 id="memoryUsed">0 MB</h3>
+                                                            <span class="badge bg-info" id="memorySize">Size: 0 MB</span>
+                                                        </div>
+                                                        <div class="memory-indicator">
+                                                            <div class="memory-used" id="memoryUsedBar" style="width: 0%"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lambda Metrics Modal -->
+    <div class="modal fade" id="lambdaMetricsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="lambdaMetricsModalTitle">Lambda Metrics</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Invocations</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="invocationsChart" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Duration</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="durationChart" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Errors</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="errorsChart" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Memory Usage</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="memoryChart" style="height: 300px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sample Lambda functions data (would be replaced with real API data)
+        const sampleFunctions = [
+            {
+                name: "process-orders",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:process-orders",
+                runtime: "nodejs18.x",
+                memory: 256,
+                timeout: 30,
+                lastModified: "2025-06-15T10:30:00.000+0000",
+                handler: "index.handler",
+                description: "Processes incoming orders from SQS queue",
+                role: "arn:aws:iam::123456789012:role/lambda-orders-role"
+            },
+            {
+                name: "generate-reports",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:generate-reports",
+                runtime: "python3.9",
+                memory: 512,
+                timeout: 60,
+                lastModified: "2025-06-20T14:15:00.000+0000",
+                handler: "app.lambda_handler",
+                description: "Generates daily sales reports",
+                role: "arn:aws:iam::123456789012:role/lambda-reports-role"
+            },
+            {
+                name: "process-images",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:process-images",
+                runtime: "python3.9",
+                memory: 1024,
+                timeout: 120,
+                lastModified: "2025-06-25T09:45:00.000+0000",
+                handler: "image_processor.handler",
+                description: "Processes and resizes uploaded images",
+                role: "arn:aws:iam::123456789012:role/lambda-images-role"
+            },
+            {
+                name: "auth-service",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:auth-service",
+                runtime: "nodejs16.x",
+                memory: 256,
+                timeout: 10,
+                lastModified: "2025-06-10T11:20:00.000+0000",
+                handler: "auth.handler",
+                description: "Handles user authentication",
+                role: "arn:aws:iam::123456789012:role/lambda-auth-role"
+            },
+            {
+                name: "data-processor",
+                arn: "arn:aws:lambda:us-east-1:123456789012:function:data-processor",
+                runtime: "java11",
+                memory: 512,
+                timeout: 60,
+                lastModified: "2025-06-18T16:30:00.000+0000",
+                handler: "com.example.DataProcessor::handleRequest",
+                description: "Processes data from Kinesis stream",
+                role: "arn:aws:iam::123456789012:role/lambda-data-role"
+            }
+        ];
+
+        // Load Lambda functions
+        function loadLambdaFunctions() {
+            // In a real app, this would fetch from the API
+            // fetch('/api/lambda-functions')
+            //     .then(response => response.json())
+            //     .then(data => {
+            //         populateLambdaFunctions(data);
+            //     })
+            //     .catch(error => {
+            //         console.error('Error fetching Lambda functions:', error);
+            //         showError('Failed to load Lambda functions');
+            //     });
+            
+            // Using sample data for demonstration
+            setTimeout(() => {
+                populateLambdaFunctions(sampleFunctions);
+            }, 500);
+        }
+
+        // Populate Lambda functions table and grid
+        function populateLambdaFunctions(functions) {
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            
+            tableBody.innerHTML = '';
+            gridContainer.innerHTML = '';
+            
+            if (functions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No Lambda functions found</td></tr>';
+                gridContainer.innerHTML = '<div class="col-12 text-center">No Lambda functions found</div>';
+                return;
+            }
+            
+            // Populate table view
+            functions.forEach(func => {
+                const row = document.createElement('tr');
+                
+                const nameCell = document.createElement('td');
+                nameCell.textContent = func.name;
+                
+                const runtimeCell = document.createElement('td');
+                const runtimeBadge = document.createElement('span');
+                runtimeBadge.className = getRuntimeBadgeClass(func.runtime);
+                runtimeBadge.textContent = func.runtime;
+                runtimeCell.appendChild(runtimeBadge);
+                
+                const memoryCell = document.createElement('td');
+                memoryCell.textContent = func.memory + ' MB';
+                
+                const timeoutCell = document.createElement('td');
+                timeoutCell.textContent = func.timeout + ' sec';
+                
+                const modifiedCell = document.createElement('td');
+                modifiedCell.textContent = formatDate(func.lastModified);
+                
+                const actionsCell = document.createElement('td');
+                
+                const invokeButton = document.createElement('button');
+                invokeButton.className = 'btn btn-sm btn-primary me-1';
+                invokeButton.innerHTML = '<i class="fas fa-play"></i>';
+                invokeButton.title = 'Invoke';
+                invokeButton.onclick = function() {
+                    openLambdaInvokeModal(func);
+                };
+                
+                const metricsButton = document.createElement('button');
+                metricsButton.className = 'btn btn-sm btn-info me-1';
+                metricsButton.innerHTML = '<i class="fas fa-chart-line"></i>';
+                metricsButton.title = 'Metrics';
+                metricsButton.onclick = function() {
+                    openLambdaMetricsModal(func.name);
+                };
+                
+                actionsCell.appendChild(invokeButton);
+                actionsCell.appendChild(metricsButton);
+                
+                row.appendChild(nameCell);
+                row.appendChild(runtimeCell);
+                row.appendChild(memoryCell);
+                row.appendChild(timeoutCell);
+                row.appendChild(modifiedCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Populate grid view
+            functions.forEach(func => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 col-lg-3 mb-4';
+                
+                const card = document.createElement('div');
+                card.className = 'card function-card h-100';
+                
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                
+                const runtime = document.createElement('span');
+                runtime.className = getRuntimeBadgeClass(func.runtime);
+                runtime.textContent = func.runtime;
+                
+                const name = document.createElement('h5');
+                name.className = 'card-title mt-2';
+                name.textContent = func.name;
+                
+                const description = document.createElement('p');
+                description.className = 'card-text text-muted small';
+                description.textContent = func.description || 'No description';
+                
+                const details = document.createElement('div');
+                details.className = 'mt-2';
+                details.innerHTML = `
+                    <div><strong>Memory:</strong> ${func.memory} MB</div>
+                    <div><strong>Timeout:</strong> ${func.timeout} sec</div>
+                    <div><strong>Modified:</strong> ${formatDate(func.lastModified)}</div>
+                `;
+                
+                const actions = document.createElement('div');
+                actions.className = 'mt-3';
+                actions.innerHTML = `
+                    <button class="btn btn-sm btn-primary me-1" onclick="openLambdaInvokeModal(${JSON.stringify(func).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-play"></i> Invoke
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="openLambdaMetricsModal('${func.name}')">
+                        <i class="fas fa-chart-line"></i> Metrics
+                    </button>
+                `;
+                
+                cardBody.appendChild(runtime);
+                cardBody.appendChild(name);
+                cardBody.appendChild(description);
+                cardBody.appendChild(details);
+                cardBody.appendChild(actions);
+                
+                card.appendChild(cardBody);
+                col.appendChild(card);
+                
+                gridContainer.appendChild(col);
+            });
+        }
+        
+        // Get runtime badge class based on runtime
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load Lambda functions from API
+        function loadLambdaFunctions() {
+            // Show loading state
+            document.getElementById('lambdaFunctionsTableBody').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading Lambda functions from AWS...</p>
+                    </td>
+                </tr>
+            `;
+            
+            document.getElementById('lambdaFunctionsGrid').innerHTML = `
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading Lambda functions from AWS...</p>
+                </div>
+            `;
+            
+            // Fetch from API
+            fetch('/api/lambda-functions')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch Lambda functions');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    populateLambdaFunctions(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching Lambda functions:', error);
+                    showError('Failed to load Lambda functions: ' + error.message);
+                });
+        }
+
+        // Populate Lambda functions table and grid
+        function populateLambdaFunctions(functions) {
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            
+            tableBody.innerHTML = '';
+            gridContainer.innerHTML = '';
+            
+            if (functions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No Lambda functions found in your AWS account</td></tr>';
+                gridContainer.innerHTML = '<div class="col-12 text-center">No Lambda functions found in your AWS account</div>';
+                return;
+            }
+            
+            // Populate table view
+            functions.forEach(func => {
+                const row = document.createElement('tr');
+                
+                const nameCell = document.createElement('td');
+                nameCell.textContent = func.name;
+                
+                const runtimeCell = document.createElement('td');
+                const runtimeBadge = document.createElement('span');
+                runtimeBadge.className = getRuntimeBadgeClass(func.runtime);
+                runtimeBadge.textContent = func.runtime;
+                runtimeCell.appendChild(runtimeBadge);
+                
+                const memoryCell = document.createElement('td');
+                memoryCell.textContent = func.memory + ' MB';
+                
+                const timeoutCell = document.createElement('td');
+                timeoutCell.textContent = func.timeout + ' sec';
+                
+                const modifiedCell = document.createElement('td');
+                modifiedCell.textContent = formatDate(func.lastModified);
+                
+                const actionsCell = document.createElement('td');
+                
+                const invokeButton = document.createElement('button');
+                invokeButton.className = 'btn btn-sm btn-primary me-1';
+                invokeButton.innerHTML = '<i class="fas fa-play"></i>';
+                invokeButton.title = 'Invoke';
+                invokeButton.onclick = function() {
+                    openLambdaInvokeModal(func);
+                };
+                
+                const metricsButton = document.createElement('button');
+                metricsButton.className = 'btn btn-sm btn-info me-1';
+                metricsButton.innerHTML = '<i class="fas fa-chart-line"></i>';
+                metricsButton.title = 'Metrics';
+                metricsButton.onclick = function() {
+                    openLambdaMetricsModal(func.name);
+                };
+                
+                actionsCell.appendChild(invokeButton);
+                actionsCell.appendChild(metricsButton);
+                
+                row.appendChild(nameCell);
+                row.appendChild(runtimeCell);
+                row.appendChild(memoryCell);
+                row.appendChild(timeoutCell);
+                row.appendChild(modifiedCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Populate grid view
+            functions.forEach(func => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 col-lg-3 mb-4';
+                
+                const card = document.createElement('div');
+                card.className = 'card function-card h-100';
+                
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                
+                const runtime = document.createElement('span');
+                runtime.className = getRuntimeBadgeClass(func.runtime);
+                runtime.textContent = func.runtime;
+                
+                const name = document.createElement('h5');
+                name.className = 'card-title mt-2';
+                name.textContent = func.name;
+                
+                const description = document.createElement('p');
+                description.className = 'card-text text-muted small';
+                description.textContent = func.description || 'No description';
+                
+                const details = document.createElement('div');
+                details.className = 'mt-2';
+                details.innerHTML = `
+                    <div><strong>Memory:</strong> ${func.memory} MB</div>
+                    <div><strong>Timeout:</strong> ${func.timeout} sec</div>
+                    <div><strong>Modified:</strong> ${formatDate(func.lastModified)}</div>
+                `;
+                
+                const actions = document.createElement('div');
+                actions.className = 'mt-3';
+                actions.innerHTML = `
+                    <button class="btn btn-sm btn-primary me-1" onclick="openLambdaInvokeModal(${JSON.stringify(func).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-play"></i> Invoke
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="openLambdaMetricsModal('${func.name}')">
+                        <i class="fas fa-chart-line"></i> Metrics
+                    </button>
+                `;
+                
+                cardBody.appendChild(runtime);
+                cardBody.appendChild(name);
+                cardBody.appendChild(description);
+                cardBody.appendChild(details);
+                cardBody.appendChild(actions);
+                
+                card.appendChild(cardBody);
+                col.appendChild(card);
+                
+                gridContainer.appendChild(col);
+            });
+        }
+        
+        // Get runtime badge class based on runtime
+        function getRuntimeBadgeClass(runtime) {
+            let baseClass = 'runtime-badge ';
+            
+            if (runtime.includes('nodejs')) {
+                return baseClass + 'nodejs-badge';
+            } else if (runtime.includes('python')) {
+                return baseClass + 'python-badge';
+            } else if (runtime.includes('java')) {
+                return baseClass + 'java-badge';
+            } else if (runtime.includes('dotnet')) {
+                return baseClass + 'dotnet-badge';
+            } else if (runtime.includes('go')) {
+                return baseClass + 'go-badge';
+            } else if (runtime.includes('ruby')) {
+                return baseClass + 'ruby-badge';
+            } else {
+                return baseClass + 'custom-badge';
+            }
+        }
+        
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        // Search functionality
+        document.getElementById('lambdaSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            // Search in table view
+            const tableRows = document.querySelectorAll('#lambdaFunctionsTableBody tr');
+            tableRows.forEach(row => {
+                if (row.cells.length < 2) return; // Skip placeholder rows
+                
+                const name = row.cells[0].textContent.toLowerCase();
+                const runtime = row.cells[1].textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || runtime.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Search in grid view
+            const gridCards = document.querySelectorAll('#lambdaFunctionsGrid .col-md-4');
+            gridCards.forEach(card => {
+                const name = card.querySelector('.card-title').textContent.toLowerCase();
+                const runtime = card.querySelector('.runtime-badge').textContent.toLowerCase();
+                const description = card.querySelector('.card-text').textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || runtime.includes(searchTerm) || description.includes(searchTerm)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+        
+        // Refresh button
+        document.getElementById('refreshFunctions').addEventListener('click', function() {
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+            
+            // Refresh from API
+            setTimeout(() => {
+                loadLambdaFunctions();
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+            }, 500);
+        });
+        
+        // Function to open Lambda invoke modal
+        window.openLambdaInvokeModal = function(func) {
+            const modal = new bootstrap.Modal(document.getElementById('lambdaInvokeModal'));
+            document.getElementById('lambdaInvokeModalTitle').textContent = 'Invoke Lambda Function: ' + func.name;
+            document.getElementById('lambdaResponseSection').style.display = 'none';
+            
+            // Populate function details
+            document.getElementById('functionDetailName').textContent = func.name;
+            document.getElementById('functionDetailRuntime').textContent = func.runtime;
+            document.getElementById('functionDetailHandler').textContent = func.handler;
+            document.getElementById('functionDetailDescription').textContent = func.description || 'No description';
+            document.getElementById('functionDetailMemory').textContent = func.memory + ' MB';
+            document.getElementById('functionDetailTimeout').textContent = func.timeout + ' seconds';
+            document.getElementById('functionDetailLastModified').textContent = formatDate(func.lastModified);
+            document.getElementById('functionDetailRole').textContent = func.role;
+            
+            // Set up invoke button
+            document.getElementById('invokeLambdaBtn').onclick = function() {
+                const payload = document.getElementById('lambdaPayload').value;
+                
+                // Show loading state
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Invoking...';
+                
+                // Invoke Lambda function via API
+                fetch('/api/invoke-lambda', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        function_name: func.name,
+                        payload: payload
+                    }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to invoke Lambda function');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Reset button state
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-play"></i> Invoke Function';
+                    
+                    // Show response section
+                    document.getElementById('lambdaResponseSection').style.display = 'block';
+                    
+                    // Check if there was an error
+                    if (data.error) {
+                        document.getElementById('lambdaResponseContent').textContent = JSON.stringify({
+                            error: data.error
+                        }, null, 2);
+                        return;
+                    }
+                    
+                    // Populate response content
+                    document.getElementById('lambdaResponseContent').textContent = JSON.stringify(data.payload ? JSON.parse(data.payload) : data, null, 2);
+                    
+                    // Populate logs content with detailed, formatted logs
+                    const logsContainer = document.getElementById('lambdaLogsContent');
+                    logsContainer.innerHTML = '';
+                    
+                    // Parse log result if available
+                    if (data.logResult) {
+                        try {
+                            // Decode base64 log result
+                            const decodedLogs = atob(data.logResult);
+                            const logLines = decodedLogs.split('\n');
+                            
+                            logLines.forEach(line => {
+                                if (!line.trim()) return;
+                                
+                                const logLine = document.createElement('div');
+                                logLine.className = 'log-line';
+                                
+                                // Try to extract timestamp and level
+                                let timestamp = '';
+                                let level = 'INFO';
+                                let message = line;
+                                
+                                // Check for common log patterns
+                                if (line.includes('START RequestId:')) {
+                                    level = 'INFO';
+                                } else if (line.includes('END RequestId:')) {
+                                    level = 'INFO';
+                                } else if (line.includes('REPORT RequestId:')) {
+                                    level = 'INFO';
+                                } else if (line.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/)) {
+                                    // Extract timestamp
+                                    const timestampMatch = line.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)/);
+                                    if (timestampMatch) {
+                                        timestamp = timestampMatch[1];
+                                        message = line.substring(timestamp.length);
+                                        
+                                        // Try to extract log level
+                                        if (message.includes('ERROR')) {
+                                            level = 'ERROR';
+                                        } else if (message.includes('WARN')) {
+                                            level = 'WARN';
+                                        }
+                                    }
+                                }
+                                
+                                if (timestamp) {
+                                    const timestampSpan = document.createElement('span');
+                                    timestampSpan.className = 'log-timestamp';
+                                    timestampSpan.textContent = timestamp;
+                                    logLine.appendChild(timestampSpan);
+                                }
+                                
+                                const levelSpan = document.createElement('span');
+                                levelSpan.className = 'log-level-' + level;
+                                levelSpan.textContent = level + ': ';
+                                
+                                const messageSpan = document.createElement('span');
+                                messageSpan.textContent = message;
+                                
+                                logLine.appendChild(levelSpan);
+                                logLine.appendChild(messageSpan);
+                                
+                                logsContainer.appendChild(logLine);
+                            });
+                        } catch (e) {
+                            // If we can't parse the logs, just show them as is
+                            const logLine = document.createElement('div');
+                            logLine.className = 'log-line';
+                            logLine.textContent = data.logResult;
+                            logsContainer.appendChild(logLine);
+                        }
+                    } else {
+                        // No logs available
+                        const logLine = document.createElement('div');
+                        logLine.className = 'log-line';
+                        logLine.textContent = 'No logs available for this invocation';
+                        logsContainer.appendChild(logLine);
+                    }
+                    
+                    // Extract metrics from REPORT line if available
+                    let duration = 0;
+                    let billedDuration = 0;
+                    let memorySize = func.memory;
+                    let memoryUsed = 0;
+                    
+                    if (data.logResult) {
+                        try {
+                            const decodedLogs = atob(data.logResult);
+                            const reportLine = decodedLogs.split('\n').find(line => line.includes('REPORT RequestId:'));
+                            
+                            if (reportLine) {
+                                const durationMatch = reportLine.match(/Duration: ([\d.]+) ms/);
+                                if (durationMatch) {
+                                    duration = parseFloat(durationMatch[1]);
+                                }
+                                
+                                const billedMatch = reportLine.match(/Billed Duration: ([\d.]+) ms/);
+                                if (billedMatch) {
+                                    billedDuration = parseFloat(billedMatch[1]);
+                                }
+                                
+                                const memorySizeMatch = reportLine.match(/Memory Size: ([\d.]+) MB/);
+                                if (memorySizeMatch) {
+                                    memorySize = parseFloat(memorySizeMatch[1]);
+                                }
+                                
+                                const memoryUsedMatch = reportLine.match(/Max Memory Used: ([\d.]+) MB/);
+                                if (memoryUsedMatch) {
+                                    memoryUsed = parseFloat(memoryUsedMatch[1]);
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error parsing metrics:', e);
+                        }
+                    }
+                    
+                    // If we couldn't extract metrics, use defaults
+                    if (duration === 0) duration = 100;
+                    if (billedDuration === 0) billedDuration = 100;
+                    if (memoryUsed === 0) memoryUsed = Math.floor(memorySize * 0.5);
+                    
+                    const memoryPercentage = Math.floor((memoryUsed / memorySize) * 100);
+                    
+                    document.getElementById('executionDuration').textContent = duration + ' ms';
+                    document.getElementById('billedDuration').textContent = 'Billed: ' + billedDuration + ' ms';
+                    document.getElementById('memoryUsed').textContent = memoryUsed + ' MB';
+                    document.getElementById('memorySize').textContent = 'Size: ' + memorySize + ' MB';
+                    document.getElementById('memoryUsedBar').style.width = memoryPercentage + '%';
+                })
+                .catch(error => {
+                    // Reset button state
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-play"></i> Invoke Function';
+                    
+                    // Show error
+                    document.getElementById('lambdaResponseSection').style.display = 'block';
+                    document.getElementById('lambdaResponseContent').textContent = JSON.stringify({
+                        error: error.message
+                    }, null, 2);
+                    
+                    console.error('Error invoking Lambda function:', error);
+                });
+            };
+            
+            modal.show();
+        };
+        
+        // Function to open Lambda metrics modal
+        window.openLambdaMetricsModal = function(functionName) {
+            const modal = new bootstrap.Modal(document.getElementById('lambdaMetricsModal'));
+            document.getElementById('lambdaMetricsModalTitle').textContent = 'Lambda Metrics: ' + functionName;
+            
+            modal.show();
+            
+            // Generate sample data for charts
+            const dates = [];
+            const invocations = [];
+            const durations = [];
+            const errors = [];
+            const memory = [];
+            
+            // Generate data for the last 7 days
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(date.toISOString().split('T')[0]);
+                
+                // Random data for demonstration
+                invocations.push(Math.floor(Math.random() * 100) + 10);
+                durations.push(Math.floor(Math.random() * 200) + 50);
+                errors.push(Math.floor(Math.random() * 5));
+                memory.push(Math.floor(Math.random() * 50) + 50);
+            }
+            
+            // Create charts
+            Plotly.newPlot('invocationsChart', [{
+                x: dates,
+                y: invocations,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Invocations',
+                line: {
+                    color: 'rgb(55, 128, 191)',
+                    width: 2
+                },
+                marker: {
+                    size: 8
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Count' }
+            });
+            
+            Plotly.newPlot('durationChart', [{
+                x: dates,
+                y: durations,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Duration',
+                line: {
+                    color: 'rgb(50, 171, 96)',
+                    width: 2
+                },
+                marker: {
+                    size: 8
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Duration (ms)' }
+            });
+            
+            Plotly.newPlot('errorsChart', [{
+                x: dates,
+                y: errors,
+                type: 'bar',
+                name: 'Errors',
+                marker: {
+                    color: 'rgb(219, 64, 82)'
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Count' }
+            });
+            
+            Plotly.newPlot('memoryChart', [{
+                x: dates,
+                y: memory,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Memory Usage',
+                line: {
+                    color: 'rgb(128, 0, 128)',
+                    width: 2
+                },
+                marker: {
+                    size: 8
+                }
+            }], {
+                margin: { t: 10, r: 10, b: 40, l: 40 },
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Memory (MB)' }
+            });
+        };
+        
+        // Show error message
+        function showError(message) {
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${message}</td></tr>`;
+            
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            gridContainer.innerHTML = `<div class="col-12 text-center text-danger">${message}</div>`;
+        }
+        
+        // Load Lambda functions on page load
+        loadLambdaFunctions();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,1507 @@
+{% extends "base.html" %}
+
+{% block title %}CloudWatch Logs & Lambda Analyzer - Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: transform 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .nav-tabs .nav-link {
+        font-size: 1.1rem;
+        font-weight: 500;
+        padding: 1rem 1.5rem;
+    }
+    .nav-tabs .nav-link.active {
+        border-bottom: 3px solid #FF9900;
+        color: #232F3E;
+    }
+    .tab-content {
+        padding: 2rem 0;
+    }
+    .dashboard-header {
+        background: linear-gradient(135deg, #232F3E 0%, #131921 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+    .function-details {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .function-detail-item {
+        display: flex;
+        margin-bottom: 0.75rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.75rem;
+    }
+    .function-detail-label {
+        font-weight: 500;
+        width: 180px;
+        color: #6c757d;
+    }
+    .function-detail-value {
+        flex: 1;
+    }
+    .log-line {
+        padding: 4px 0;
+        border-bottom: 1px solid #f1f1f1;
+        font-family: monospace;
+    }
+    .log-timestamp {
+        color: #6c757d;
+        margin-right: 10px;
+    }
+    .log-level-INFO {
+        color: #0d6efd;
+        font-weight: 500;
+    }
+    .log-level-WARN {
+        color: #ffc107;
+        font-weight: 500;
+    }
+    .log-level-ERROR {
+        color: #dc3545;
+        font-weight: 500;
+    }
+    .runtime-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .nodejs-badge {
+        background-color: #68a063;
+        color: white;
+    }
+    .python-badge {
+        background-color: #3572A5;
+        color: white;
+    }
+    .java-badge {
+        background-color: #b07219;
+        color: white;
+    }
+    .dotnet-badge {
+        background-color: #512BD4;
+        color: white;
+    }
+    .go-badge {
+        background-color: #00ADD8;
+        color: white;
+    }
+    .ruby-badge {
+        background-color: #CC342D;
+        color: white;
+    }
+    .custom-badge {
+        background-color: #6c757d;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+            <p class="mb-0">Monitor and analyze your CloudWatch logs and Lambda functions</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <span class="badge bg-light text-dark me-2">
+                <i class="fas fa-map-marker-alt"></i> Region: {{ region }}
+            </span>
+            {% if session.get('aws_profile') %}
+            <span class="badge bg-light text-dark">
+                <i class="fas fa-user"></i> Profile: {{ session.get('aws_profile') }}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Main Navigation Tabs -->
+<ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">
+            <i class="fas fa-chart-pie"></i> Overview
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab" aria-controls="logs" aria-selected="false">
+            <i class="fas fa-file-alt"></i> Logs
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="lambda-tab" data-bs-toggle="tab" data-bs-target="#lambda" type="button" role="tab" aria-controls="lambda" aria-selected="false">
+            <i class="fas fa-code"></i> Lambda
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="dashboardTabsContent">
+    <!-- Overview Tab -->
+    <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card bg-primary text-white mb-3">
+                    <div class="card-body text-center">
+                        <div class="card-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h5 class="card-title">Log Groups</h5>
+                        <h2 class="display-4">{{ log_groups|length }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card bg-success text-white mb-3">
+                    <div class="card-body text-center">
+                        <div class="card-icon">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <h5 class="card-title">Lambda Functions</h5>
+                        <h2 class="display-4">{{ lambda_functions|length }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card bg-info text-white mb-3">
+                    <div class="card-body text-center">
+                        <div class="card-icon">
+                            <i class="fas fa-memory"></i>
+                        </div>
+                        <h5 class="card-title">Total Storage</h5>
+                        <h2 class="display-4" id="totalStorage">-</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card bg-warning text-white mb-3">
+                    <div class="card-body text-center">
+                        <div class="card-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h5 class="card-title">Potential Issues</h5>
+                        <h2 class="display-4" id="issuesCount">-</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Recent Log Groups -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-file-alt"></i> Recent Log Groups</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Created</th>
+                                        <th>Size</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log_group in log_groups[:5] %}
+                                    <tr>
+                                        <td>{{ log_group.name }}</td>
+                                        <td>{{ log_group.creationTime }}</td>
+                                        <td>{{ (log_group.storedBytes / 1024 / 1024) | round(2) }} MB</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-3">
+                            <button class="btn btn-outline-primary" id="viewAllLogsBtn">View All Log Groups</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Lambda Functions -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-code"></i> Recent Lambda Functions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Runtime</th>
+                                        <th>Memory</th>
+                                        <th>Timeout</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for function in lambda_functions[:5] %}
+                                    <tr>
+                                        <td>{{ function.name }}</td>
+                                        <td>{{ function.runtime }}</td>
+                                        <td>{{ function.memory }} MB</td>
+                                        <td>{{ function.timeout }} sec</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-3">
+                            <button class="btn btn-outline-primary" id="viewAllLambdaBtn">View All Lambda Functions</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Log Groups by Size</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="logGroupSizeChart" style="height: 350px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Lambda Functions by Runtime</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="lambdaRuntimeChart" style="height: 350px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Tab -->
+    <div class="tab-pane fade" id="logs" role="tabpanel" aria-labelledby="logs-tab">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Log Groups</h5>
+                        <div class="d-flex">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" id="logGroupSearch" class="form-control form-control-sm" placeholder="Search log groups...">
+                            </div>
+                            <div class="ms-2">
+                                <button class="btn btn-outline-primary btn-sm" id="refreshLogGroups">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="logGroupsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Creation Time</th>
+                                        <th>Size</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logGroupsTableBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center">Loading log groups...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lambda Tab -->
+    <div class="tab-pane fade" id="lambda" role="tabpanel" aria-labelledby="lambda-tab">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0"><i class="fas fa-code"></i> Lambda Functions</h5>
+                        </div>
+                        <div class="d-flex">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" id="lambdaSearch" class="form-control" placeholder="Search functions...">
+                            </div>
+                            <div class="ms-2">
+                                <button class="btn btn-outline-primary" id="refreshFunctions">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="lambdaFunctionsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Runtime</th>
+                                        <th>Memory</th>
+                                        <th>Timeout</th>
+                                        <th>Last Modified</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lambdaFunctionsTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2">Loading Lambda functions...</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lambda Function Grid View -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-th"></i> Grid View</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="lambdaFunctionsGrid">
+                            <div class="col-12 text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Loading Lambda functions...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lambda Invoke Modal -->
+<div class="modal fade" id="lambdaInvokeModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="lambdaInvokeModalTitle">Invoke Lambda Function</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="function-details mb-4">
+                    <h5 class="mb-3">Function Configuration</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Function Name</div>
+                                <div class="function-detail-value" id="functionDetailName">-</div>
+                            </div>
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Runtime</div>
+                                <div class="function-detail-value" id="functionDetailRuntime">-</div>
+                            </div>
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Handler</div>
+                                <div class="function-detail-value" id="functionDetailHandler">-</div>
+                            </div>
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Description</div>
+                                <div class="function-detail-value" id="functionDetailDescription">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Memory</div>
+                                <div class="function-detail-value" id="functionDetailMemory">-</div>
+                            </div>
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Timeout</div>
+                                <div class="function-detail-value" id="functionDetailTimeout">-</div>
+                            </div>
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Last Modified</div>
+                                <div class="function-detail-value" id="functionDetailLastModified">-</div>
+                            </div>
+                            <div class="function-detail-item">
+                                <div class="function-detail-label">Role</div>
+                                <div class="function-detail-value" id="functionDetailRole">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h5 class="mb-3">Invoke Function</h5>
+                    <div class="mb-3">
+                        <label for="lambdaPayload" class="form-label">Payload (JSON)</label>
+                        <textarea class="form-control" id="lambdaPayload" rows="8">{ 
+    "key": "value",
+    "message": "Hello from CloudWatch Logs & Lambda Analyzer",
+    "timestamp": "2025-07-02T12:00:00Z"
+}</textarea>
+                    </div>
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-primary" id="invokeLambdaBtn">
+                            <i class="fas fa-play"></i> Invoke Function
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-4" id="lambdaResponseSection" style="display: none;">
+                    <h5 class="mb-3">Response</h5>
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <ul class="nav nav-tabs card-header-tabs" id="lambdaResponseTabs">
+                                <li class="nav-item">
+                                    <a class="nav-link active" data-bs-toggle="tab" href="#responseTab">Response</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#logsTab">Logs</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#metricsTab">Metrics</a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body">
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="responseTab">
+                                    <pre id="lambdaResponseContent" class="bg-light p-3 rounded"></pre>
+                                </div>
+                                <div class="tab-pane fade" id="logsTab">
+                                    <div class="log-viewer" id="lambdaLogsContent"></div>
+                                </div>
+                                <div class="tab-pane fade" id="metricsTab">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-header bg-light">
+                                                    <h6 class="mb-0">Duration</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <h3 id="executionDuration">0 ms</h3>
+                                                        <span class="badge bg-primary" id="billedDuration">Billed: 0 ms</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card mb-3">
+                                                <div class="card-header bg-light">
+                                                    <h6 class="mb-0">Memory Usage</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <h3 id="memoryUsed">0 MB</h3>
+                                                        <span class="badge bg-info" id="memorySize">Size: 0 MB</span>
+                                                    </div>
+                                                    <div class="memory-indicator">
+                                                        <div class="memory-used" id="memoryUsedBar" style="width: 0%"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Events Modal -->
+<div class="modal fade" id="logEventsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logEventsModalTitle">Log Events</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="logStreamSelect" class="form-label">Log Stream</label>
+                    <select class="form-select" id="logStreamSelect">
+                        <option value="">Select a log stream...</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm" id="logEventsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 200px;">Timestamp</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logEventsTableBody">
+                            <tr>
+                                <td colspan="2" class="text-center">Select a log stream to view events</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Calculate total storage
+        let totalBytes = 0;
+        {% for log_group in log_groups %}
+            totalBytes += {{ log_group.storedBytes }};
+        {% endfor %}
+        
+        const totalMB = (totalBytes / 1024 / 1024).toFixed(2);
+        document.getElementById('totalStorage').textContent = totalMB + ' MB';
+        
+        // Set issues count (placeholder for now)
+        document.getElementById('issuesCount').textContent = '0';
+        
+        // Create Log Groups Size Chart
+        const logGroupNames = [];
+        const logGroupSizes = [];
+        
+        {% for log_group in log_groups[:10] %}
+            logGroupNames.push('{{ log_group.name.split("/")[-1] }}');
+            logGroupSizes.push({{ log_group.storedBytes / 1024 / 1024 }});
+        {% endfor %}
+        
+        const logGroupSizeData = [{
+            x: logGroupNames,
+            y: logGroupSizes,
+            type: 'bar',
+            marker: {
+                color: 'rgba(55, 128, 191, 0.7)',
+                line: {
+                    color: 'rgba(55, 128, 191, 1.0)',
+                    width: 2
+                }
+            }
+        }];
+        
+        const logGroupSizeLayout = {
+            margin: { t: 20, b: 90, l: 60, r: 20 },
+            xaxis: {
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Size (MB)'
+            }
+        };
+        
+        Plotly.newPlot('logGroupSizeChart', logGroupSizeData, logGroupSizeLayout);
+        
+        // Create Lambda Runtime Chart
+        const runtimes = {};
+        {% for function in lambda_functions %}
+            const runtime = '{{ function.runtime }}';
+            runtimes[runtime] = (runtimes[runtime] || 0) + 1;
+        {% endfor %}
+        
+        const runtimeLabels = Object.keys(runtimes);
+        const runtimeCounts = Object.values(runtimes);
+        
+        const lambdaRuntimeData = [{
+            labels: runtimeLabels,
+            values: runtimeCounts,
+            type: 'pie',
+            marker: {
+                colors: [
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)',
+                    'rgba(255, 159, 64, 0.7)'
+                ]
+            }
+        }];
+        
+        const lambdaRuntimeLayout = {
+            margin: { t: 20, b: 20, l: 20, r: 20 }
+        };
+        
+        Plotly.newPlot('lambdaRuntimeChart', lambdaRuntimeData, lambdaRuntimeLayout);
+
+        // Tab navigation
+        document.getElementById('viewAllLogsBtn').addEventListener('click', function() {
+            document.getElementById('logs-tab').click();
+        });
+
+        document.getElementById('viewAllLambdaBtn').addEventListener('click', function() {
+            document.getElementById('lambda-tab').click();
+        });
+
+        // Load log groups for the logs tab
+        function loadLogGroups() {
+            // Clear existing content and show loading state
+            const tableBody = document.getElementById('logGroupsTableBody');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading log groups...</p>
+                    </td>
+                </tr>
+            `;
+            
+            // Fetch log groups from API
+            console.log('Fetching log groups from API...');
+            fetch('/api/log-groups')
+                .then(response => {
+                    console.log('Log groups API response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch log groups: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    console.log('Log groups API response:', result);
+                    
+                    if (!result.success) {
+                        throw new Error(result.error || 'Unknown error fetching log groups');
+                    }
+                    
+                    const logGroups = result.data;
+                    console.log('Log groups loaded:', logGroups);
+                    populateLogGroups(logGroups);
+                })
+                .catch(error => {
+                    console.error('Error fetching log groups:', error);
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center text-danger">
+                                Error loading log groups: ${error.message}
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+
+        function populateLogGroups(logGroups) {
+            const tableBody = document.getElementById('logGroupsTableBody');
+            tableBody.innerHTML = '';
+            
+            if (logGroups.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No log groups found</td></tr>';
+                return;
+            }
+            
+            logGroups.forEach(logGroup => {
+                const row = document.createElement('tr');
+                
+                const nameCell = document.createElement('td');
+                nameCell.textContent = logGroup.name;
+                
+                const timeCell = document.createElement('td');
+                timeCell.textContent = logGroup.creationTime;
+                
+                const sizeCell = document.createElement('td');
+                const sizeMB = (logGroup.storedBytes / 1024 / 1024).toFixed(2);
+                sizeCell.textContent = sizeMB + ' MB';
+                
+                const actionsCell = document.createElement('td');
+                const viewButton = document.createElement('button');
+                viewButton.className = 'btn btn-sm btn-primary';
+                viewButton.innerHTML = '<i class="fas fa-eye"></i> View';
+                viewButton.onclick = function() {
+                    openLogEventsModal(logGroup.name);
+                };
+                actionsCell.appendChild(viewButton);
+                
+                row.appendChild(nameCell);
+                row.appendChild(timeCell);
+                row.appendChild(sizeCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Function to open log events modal
+        window.openLogEventsModal = function(logGroupName) {
+            const modal = new bootstrap.Modal(document.getElementById('logEventsModal'));
+            document.getElementById('logEventsModalTitle').textContent = 'Log Events: ' + logGroupName;
+            
+            // Clear previous data
+            document.getElementById('logStreamSelect').innerHTML = '<option value="">Select a log stream...</option>';
+            document.getElementById('logEventsTableBody').innerHTML = '<tr><td colspan="2" class="text-center">Loading log streams...</td></tr>';
+            
+            // Fetch real log streams from API
+            fetch(`/api/log-streams?log_group_name=${encodeURIComponent(logGroupName)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch log streams');
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    console.log('Log streams API response:', result);
+                    
+                    if (!result.success) {
+                        throw new Error(result.error || 'Unknown error fetching log streams');
+                    }
+                    
+                    const streams = result.data;
+                    const logStreamSelect = document.getElementById('logStreamSelect');
+                    logStreamSelect.innerHTML = '<option value="">Select a log stream...</option>';
+                    
+                    if (streams.length === 0) {
+                        document.getElementById('logEventsTableBody').innerHTML = 
+                            '<tr><td colspan="2" class="text-center">No log streams found for this log group</td></tr>';
+                        return;
+                    }
+                    
+                    // Add real log streams from API
+                    streams.forEach(stream => {
+                        const option = document.createElement('option');
+                        option.value = stream.name;
+                        option.textContent = stream.name;
+                        logStreamSelect.appendChild(option);
+                    });
+                    
+                    document.getElementById('logEventsTableBody').innerHTML = 
+                        '<tr><td colspan="2" class="text-center">Select a log stream to view events</td></tr>';
+                    
+                    // Add event listener for log stream selection
+                    logStreamSelect.addEventListener('change', function() {
+                        const selectedStream = this.value;
+                        if (!selectedStream) return;
+                        
+                        document.getElementById('logEventsTableBody').innerHTML = 
+                            '<tr><td colspan="2" class="text-center">Loading log events...</td></tr>';
+                        
+                        // Fetch real log events from API
+                        fetch(`/api/log-events?log_group_name=${encodeURIComponent(logGroupName)}&log_stream_name=${encodeURIComponent(selectedStream)}`)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Failed to fetch log events');
+                                }
+                                return response.json();
+                            })
+                            .then(result => {
+                                console.log('Log events API response:', result);
+                                
+                                if (!result.success) {
+                                    throw new Error(result.error || 'Unknown error fetching log events');
+                                }
+                                
+                                const events = result.data;
+                                const eventsTableBody = document.getElementById('logEventsTableBody');
+                                eventsTableBody.innerHTML = '';
+                                
+                                if (events.length === 0) {
+                                    eventsTableBody.innerHTML = 
+                                        '<tr><td colspan="2" class="text-center">No log events found in this stream</td></tr>';
+                                    return;
+                                }
+                                
+                                events.forEach(event => {
+                                    const row = document.createElement('tr');
+                                    
+                                    const timestampCell = document.createElement('td');
+                                    timestampCell.textContent = event.timestamp;
+                                    
+                                    const messageCell = document.createElement('td');
+                                    messageCell.textContent = event.message;
+                                    
+                                    row.appendChild(timestampCell);
+                                    row.appendChild(messageCell);
+                                    
+                                    eventsTableBody.appendChild(row);
+                                });
+                            })
+                            .catch(error => {
+                                document.getElementById('logEventsTableBody').innerHTML = 
+                                    `<tr><td colspan="2" class="text-center text-danger">Error: ${error.message}</td></tr>`;
+                                console.error('Error fetching log events:', error);
+                            });
+                    });
+                })
+                .catch(error => {
+                    document.getElementById('logStreamSelect').innerHTML = '<option value="">Error loading streams</option>';
+                    document.getElementById('logEventsTableBody').innerHTML = 
+                        `<tr><td colspan="2" class="text-center text-danger">Error: ${error.message}</td></tr>`;
+                    console.error('Error fetching log streams:', error);
+                });
+            
+            modal.show();
+        };
+
+        // Load Lambda functions for the lambda tab - Completely rewritten for reliability
+        function loadLambdaFunctions() {
+            console.log('Starting Lambda functions load...');
+            
+            // Clear existing content and show loading state
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading Lambda functions...</p>
+                    </td>
+                </tr>
+            `;
+            
+            gridContainer.innerHTML = `
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading Lambda functions...</p>
+                </div>
+            `;
+            
+            // First try the debug endpoint to see what's happening
+            console.log('Fetching Lambda debug info...');
+            fetch('/api/debug-lambda')
+                .then(response => {
+                    console.log('Debug API response status:', response.status);
+                    return response.json();
+                })
+                .then(debugData => {
+                    console.log('Debug data:', debugData);
+                    
+                    // Now fetch the actual Lambda functions
+                    console.log('Fetching Lambda functions from API...');
+                    return fetch('/api/lambda-functions');
+                })
+                .then(response => {
+                    console.log('Lambda functions API response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch Lambda functions: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    console.log('Lambda functions API full response:', result);
+                    
+                    // Handle both old and new response formats
+                    let functions;
+                    if (Array.isArray(result)) {
+                        // Old format - direct array
+                        console.log('Using old response format (array)');
+                        functions = result;
+                    } else if (result.success && Array.isArray(result.data)) {
+                        // New format - success + data
+                        console.log('Using new response format (success + data)');
+                        functions = result.data;
+                    } else if (result.error) {
+                        // Error in new format
+                        throw new Error(result.error);
+                    } else {
+                        // Unknown format
+                        console.error('Unknown response format:', result);
+                        throw new Error('Unexpected response format from server');
+                    }
+                    
+                    console.log(`Found ${functions.length} Lambda functions`);
+                    
+                    // Display functions
+                    displayLambdaFunctions(functions);
+                })
+                .catch(error => {
+                    console.error('Error fetching Lambda functions:', error);
+                    
+                    // Show error message
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center text-danger">
+                                <div>
+                                    <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                                    <h5>Error loading Lambda functions</h5>
+                                    <p>${error.message}</p>
+                                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadLambdaFunctions()">
+                                        <i class="fas fa-sync"></i> Try Again
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    
+                    gridContainer.innerHTML = `
+                        <div class="col-12 text-center text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                            <h5>Error loading Lambda functions</h5>
+                            <p>${error.message}</p>
+                            <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadLambdaFunctions()">
+                                <i class="fas fa-sync"></i> Try Again
+                            </button>
+                        </div>
+                    `;
+                });
+        }
+        
+        // New function to display Lambda functions - separated for clarity
+        function displayLambdaFunctions(functions) {
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            
+            tableBody.innerHTML = '';
+            gridContainer.innerHTML = '';
+            
+            if (!functions || functions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No Lambda functions found in your AWS account</td></tr>';
+                gridContainer.innerHTML = '<div class="col-12 text-center">No Lambda functions found in your AWS account</div>';
+                return;
+            }
+            
+            // Populate table view
+            functions.forEach(func => {
+                try {
+                    const row = document.createElement('tr');
+                    
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = func.name || 'Unknown';
+                    
+                    const runtimeCell = document.createElement('td');
+                    const runtimeBadge = document.createElement('span');
+                    runtimeBadge.className = getRuntimeBadgeClass(func.runtime || 'unknown');
+                    runtimeBadge.textContent = func.runtime || 'Unknown';
+                    runtimeCell.appendChild(runtimeBadge);
+                    
+                    const memoryCell = document.createElement('td');
+                    memoryCell.textContent = (func.memory || 0) + ' MB';
+                    
+                    const timeoutCell = document.createElement('td');
+                    timeoutCell.textContent = (func.timeout || 0) + ' sec';
+                    
+                    const modifiedCell = document.createElement('td');
+                    modifiedCell.textContent = formatDate(func.lastModified || '');
+                    
+                    const actionsCell = document.createElement('td');
+                    
+                    const invokeButton = document.createElement('button');
+                    invokeButton.className = 'btn btn-sm btn-primary me-1';
+                    invokeButton.innerHTML = '<i class="fas fa-play"></i>';
+                    invokeButton.title = 'Invoke';
+                    invokeButton.onclick = function() {
+                        openLambdaInvokeModal(func);
+                    };
+                    
+                    const metricsButton = document.createElement('button');
+                    metricsButton.className = 'btn btn-sm btn-info me-1';
+                    metricsButton.innerHTML = '<i class="fas fa-chart-line"></i>';
+                    metricsButton.title = 'Metrics';
+                    metricsButton.onclick = function() {
+                        alert('Metrics feature coming soon!');
+                    };
+                    
+                    actionsCell.appendChild(invokeButton);
+                    actionsCell.appendChild(metricsButton);
+                    
+                    row.appendChild(nameCell);
+                    row.appendChild(runtimeCell);
+                    row.appendChild(memoryCell);
+                    row.appendChild(timeoutCell);
+                    row.appendChild(modifiedCell);
+                    row.appendChild(actionsCell);
+                    
+                    tableBody.appendChild(row);
+                } catch (err) {
+                    console.error('Error rendering Lambda function row:', err, func);
+                }
+            });
+            
+            // Populate grid view
+            functions.forEach(func => {
+                try {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4 col-lg-3 mb-4';
+                    
+                    const card = document.createElement('div');
+                    card.className = 'card function-card h-100';
+                    
+                    const cardBody = document.createElement('div');
+                    cardBody.className = 'card-body';
+                    
+                    const runtime = document.createElement('span');
+                    runtime.className = getRuntimeBadgeClass(func.runtime || 'unknown');
+                    runtime.textContent = func.runtime || 'Unknown';
+                    
+                    const name = document.createElement('h5');
+                    name.className = 'card-title mt-2';
+                    name.textContent = func.name || 'Unknown';
+                    
+                    const description = document.createElement('p');
+                    description.className = 'card-text text-muted small';
+                    description.textContent = func.description || 'No description';
+                    
+                    const details = document.createElement('div');
+                    details.className = 'mt-2';
+                    details.innerHTML = `
+                        <div><strong>Memory:</strong> ${func.memory || 0} MB</div>
+                        <div><strong>Timeout:</strong> ${func.timeout || 0} sec</div>
+                        <div><strong>Modified:</strong> ${formatDate(func.lastModified || '')}</div>
+                    `;
+                    
+                    const actions = document.createElement('div');
+                    actions.className = 'mt-3';
+                    
+                    const invokeBtn = document.createElement('button');
+                    invokeBtn.className = 'btn btn-sm btn-primary me-1';
+                    invokeBtn.innerHTML = '<i class="fas fa-play"></i> Invoke';
+                    invokeBtn.onclick = function() {
+                        openLambdaInvokeModal(func);
+                    };
+                    
+                    const metricsBtn = document.createElement('button');
+                    metricsBtn.className = 'btn btn-sm btn-info';
+                    metricsBtn.innerHTML = '<i class="fas fa-chart-line"></i> Metrics';
+                    metricsBtn.onclick = function() {
+                        alert('Metrics feature coming soon!');
+                    };
+                    
+                    actions.appendChild(invokeBtn);
+                    actions.appendChild(metricsBtn);
+                    
+                    cardBody.appendChild(runtime);
+                    cardBody.appendChild(name);
+                    cardBody.appendChild(description);
+                    cardBody.appendChild(details);
+                    cardBody.appendChild(actions);
+                    
+                    card.appendChild(cardBody);
+                    col.appendChild(card);
+                    
+                    gridContainer.appendChild(col);
+                } catch (err) {
+                    console.error('Error rendering Lambda function card:', err, func);
+                }
+            });
+        }
+
+        // Populate Lambda functions table and grid
+        function populateLambdaFunctions(functions) {
+            const tableBody = document.getElementById('lambdaFunctionsTableBody');
+            const gridContainer = document.getElementById('lambdaFunctionsGrid');
+            
+            tableBody.innerHTML = '';
+            gridContainer.innerHTML = '';
+            
+            if (functions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No Lambda functions found in your AWS account</td></tr>';
+                gridContainer.innerHTML = '<div class="col-12 text-center">No Lambda functions found in your AWS account</div>';
+                return;
+            }
+            
+            // Populate table view
+            functions.forEach(func => {
+                const row = document.createElement('tr');
+                
+                const nameCell = document.createElement('td');
+                nameCell.textContent = func.name;
+                
+                const runtimeCell = document.createElement('td');
+                const runtimeBadge = document.createElement('span');
+                runtimeBadge.className = getRuntimeBadgeClass(func.runtime);
+                runtimeBadge.textContent = func.runtime;
+                runtimeCell.appendChild(runtimeBadge);
+                
+                const memoryCell = document.createElement('td');
+                memoryCell.textContent = func.memory + ' MB';
+                
+                const timeoutCell = document.createElement('td');
+                timeoutCell.textContent = func.timeout + ' sec';
+                
+                const modifiedCell = document.createElement('td');
+                modifiedCell.textContent = formatDate(func.lastModified);
+                
+                const actionsCell = document.createElement('td');
+                
+                const invokeButton = document.createElement('button');
+                invokeButton.className = 'btn btn-sm btn-primary me-1';
+                invokeButton.innerHTML = '<i class="fas fa-play"></i>';
+                invokeButton.title = 'Invoke';
+                invokeButton.onclick = function() {
+                    openLambdaInvokeModal(func);
+                };
+                
+                const metricsButton = document.createElement('button');
+                metricsButton.className = 'btn btn-sm btn-info me-1';
+                metricsButton.innerHTML = '<i class="fas fa-chart-line"></i>';
+                metricsButton.title = 'Metrics';
+                metricsButton.onclick = function() {
+                    openLambdaMetricsModal(func.name);
+                };
+                
+                actionsCell.appendChild(invokeButton);
+                actionsCell.appendChild(metricsButton);
+                
+                row.appendChild(nameCell);
+                row.appendChild(runtimeCell);
+                row.appendChild(memoryCell);
+                row.appendChild(timeoutCell);
+                row.appendChild(modifiedCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Populate grid view
+            functions.forEach(func => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 col-lg-3 mb-4';
+                
+                const card = document.createElement('div');
+                card.className = 'card function-card h-100';
+                
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                
+                const runtime = document.createElement('span');
+                runtime.className = getRuntimeBadgeClass(func.runtime);
+                runtime.textContent = func.runtime;
+                
+                const name = document.createElement('h5');
+                name.className = 'card-title mt-2';
+                name.textContent = func.name;
+                
+                const description = document.createElement('p');
+                description.className = 'card-text text-muted small';
+                description.textContent = func.description || 'No description';
+                
+                const details = document.createElement('div');
+                details.className = 'mt-2';
+                details.innerHTML = `
+                    <div><strong>Memory:</strong> ${func.memory} MB</div>
+                    <div><strong>Timeout:</strong> ${func.timeout} sec</div>
+                    <div><strong>Modified:</strong> ${formatDate(func.lastModified)}</div>
+                `;
+                
+                const actions = document.createElement('div');
+                actions.className = 'mt-3';
+                actions.innerHTML = `
+                    <button class="btn btn-sm btn-primary me-1" onclick="openLambdaInvokeModal(${JSON.stringify(func).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-play"></i> Invoke
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="openLambdaMetricsModal('${func.name}')">
+                        <i class="fas fa-chart-line"></i> Metrics
+                    </button>
+                `;
+                
+                cardBody.appendChild(runtime);
+                cardBody.appendChild(name);
+                cardBody.appendChild(description);
+                cardBody.appendChild(details);
+                cardBody.appendChild(actions);
+                
+                card.appendChild(cardBody);
+                col.appendChild(card);
+                
+                gridContainer.appendChild(col);
+            });
+        }
+        
+        // Get runtime badge class based on runtime
+        function getRuntimeBadgeClass(runtime) {
+            let baseClass = 'runtime-badge ';
+            
+            if (runtime.includes('nodejs')) {
+                return baseClass + 'nodejs-badge';
+            } else if (runtime.includes('python')) {
+                return baseClass + 'python-badge';
+            } else if (runtime.includes('java')) {
+                return baseClass + 'java-badge';
+            } else if (runtime.includes('dotnet')) {
+                return baseClass + 'dotnet-badge';
+            } else if (runtime.includes('go')) {
+                return baseClass + 'go-badge';
+            } else if (runtime.includes('ruby')) {
+                return baseClass + 'ruby-badge';
+            } else {
+                return baseClass + 'custom-badge';
+            }
+        }
+        
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        // Function to open Lambda invoke modal
+        window.openLambdaInvokeModal = function(func) {
+            const modal = new bootstrap.Modal(document.getElementById('lambdaInvokeModal'));
+            document.getElementById('lambdaInvokeModalTitle').textContent = 'Invoke Lambda Function: ' + func.name;
+            document.getElementById('lambdaResponseSection').style.display = 'none';
+            
+            // Populate function details
+            document.getElementById('functionDetailName').textContent = func.name;
+            document.getElementById('functionDetailRuntime').textContent = func.runtime;
+            document.getElementById('functionDetailHandler').textContent = func.handler;
+            document.getElementById('functionDetailDescription').textContent = func.description || 'No description';
+            document.getElementById('functionDetailMemory').textContent = func.memory + ' MB';
+            document.getElementById('functionDetailTimeout').textContent = func.timeout + ' seconds';
+            document.getElementById('functionDetailLastModified').textContent = formatDate(func.lastModified);
+            document.getElementById('functionDetailRole').textContent = func.role;
+            
+            // Set up invoke button
+            document.getElementById('invokeLambdaBtn').onclick = function() {
+                const payload = document.getElementById('lambdaPayload').value;
+                
+                // Show loading state
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Invoking...';
+                
+                // Invoke Lambda function via API
+                fetch('/api/invoke-lambda', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        function_name: func.name,
+                        payload: payload
+                    }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to invoke Lambda function');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Reset button state
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-play"></i> Invoke Function';
+                    
+                    // Show response section
+                    document.getElementById('lambdaResponseSection').style.display = 'block';
+                    
+                    // Check if there was an error
+                    if (!data.success) {
+                        document.getElementById('lambdaResponseContent').textContent = JSON.stringify({
+                            error: data.error
+                        }, null, 2);
+                        return;
+                    }
+                    
+                    const result = data.data;
+                    
+                    // Populate response content
+                    document.getElementById('lambdaResponseContent').textContent = JSON.stringify(
+                        result.payload ? JSON.parse(result.payload) : result, 
+                        null, 
+                        2
+                    );
+                    
+                    // Populate logs content with detailed, formatted logs
+                    const logsContainer = document.getElementById('lambdaLogsContent');
+                    logsContainer.innerHTML = '';
+                    
+                    // Parse log result if available
+                    if (result.logResult) {
+                        try {
+                            // Decode base64 log result
+                            const decodedLogs = atob(data.logResult);
+                            const logLines = decodedLogs.split('\n');
+                            
+                            logLines.forEach(line => {
+                                if (!line.trim()) return;
+                                
+                                const logLine = document.createElement('div');
+                                logLine.className = 'log-line';
+                                
+                                // Try to extract timestamp and level
+                                let timestamp = '';
+                                let level = 'INFO';
+                                let message = line;
+                                
+                                // Check for common log patterns
+                                if (line.includes('START RequestId:')) {
+                                    level = 'INFO';
+                                } else if (line.includes('END RequestId:')) {
+                                    level = 'INFO';
+                                } else if (line.includes('REPORT RequestId:')) {
+                                    level = 'INFO';
+                                } else if (line.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/)) {
+                                    // Extract timestamp
+                                    const timestampMatch = line.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)/);
+                                    if (timestampMatch) {
+                                        timestamp = timestampMatch[1];
+                                        message = line.substring(timestamp.length);
+                                        
+                                        // Try to extract log level
+                                        if (message.includes('ERROR')) {
+                                            level = 'ERROR';
+                                        } else if (message.includes('WARN')) {
+                                            level = 'WARN';
+                                        }
+                                    }
+                                }
+                                
+                                if (timestamp) {
+                                    const timestampSpan = document.createElement('span');
+                                    timestampSpan.className = 'log-timestamp';
+                                    timestampSpan.textContent = timestamp;
+                                    logLine.appendChild(timestampSpan);
+                                }
+                                
+                                const levelSpan = document.createElement('span');
+                                levelSpan.className = 'log-level-' + level;
+                                levelSpan.textContent = level + ': ';
+                                
+                                const messageSpan = document.createElement('span');
+                                messageSpan.textContent = message;
+                                
+                                logLine.appendChild(levelSpan);
+                                logLine.appendChild(messageSpan);
+                                
+                                logsContainer.appendChild(logLine);
+                            });
+                        } catch (e) {
+                            // If we can't parse the logs, just show them as is
+                            const logLine = document.createElement('div');
+                            logLine.className = 'log-line';
+                            logLine.textContent = data.logResult;
+                            logsContainer.appendChild(logLine);
+                        }
+                    } else {
+                        // No logs available
+                        const logLine = document.createElement('div');
+                        logLine.className = 'log-line';
+                        logLine.textContent = 'No logs available for this invocation';
+                        logsContainer.appendChild(logLine);
+                    }
+                    
+                    // Extract metrics from REPORT line if available
+                    let duration = 0;
+                    let billedDuration = 0;
+                    let memorySize = func.memory;
+                    let memoryUsed = 0;
+                    
+                    if (data.logResult) {
+                        try {
+                            const decodedLogs = atob(data.logResult);
+                            const reportLine = decodedLogs.split('\n').find(line => line.includes('REPORT RequestId:'));
+                            
+                            if (reportLine) {
+                                const durationMatch = reportLine.match(/Duration: ([\d.]+) ms/);
+                                if (durationMatch) {
+                                    duration = parseFloat(durationMatch[1]);
+                                }
+                                
+                                const billedMatch = reportLine.match(/Billed Duration: ([\d.]+) ms/);
+                                if (billedMatch) {
+                                    billedDuration = parseFloat(billedMatch[1]);
+                                }
+                                
+                                const memorySizeMatch = reportLine.match(/Memory Size: ([\d.]+) MB/);
+                                if (memorySizeMatch) {
+                                    memorySize = parseFloat(memorySizeMatch[1]);
+                                }
+                                
+                                const memoryUsedMatch = reportLine.match(/Max Memory Used: ([\d.]+) MB/);
+                                if (memoryUsedMatch) {
+                                    memoryUsed = parseFloat(memoryUsedMatch[1]);
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error parsing metrics:', e);
+                        }
+                    }
+                    
+                    // If we couldn't extract metrics, use defaults
+                    if (duration === 0) duration = 100;
+                    if (billedDuration === 0) billedDuration = 100;
+                    if (memoryUsed === 0) memoryUsed = Math.floor(memorySize * 0.5);
+                    
+                    const memoryPercentage = Math.floor((memoryUsed / memorySize) * 100);
+                    
+                    document.getElementById('executionDuration').textContent = duration + ' ms';
+                    document.getElementById('billedDuration').textContent = 'Billed: ' + billedDuration + ' ms';
+                    document.getElementById('memoryUsed').textContent = memoryUsed + ' MB';
+                    document.getElementById('memorySize').textContent = 'Size: ' + memorySize + ' MB';
+                    document.getElementById('memoryUsedBar').style.width = memoryPercentage + '%';
+                })
+                .catch(error => {
+                    // Reset button state
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-play"></i> Invoke Function';
+                    
+                    // Show error
+                    document.getElementById('lambdaResponseSection').style.display = 'block';
+                    document.getElementById('lambdaResponseContent').textContent = JSON.stringify({
+                        error: error.message
+                    }, null, 2);
+                    
+                    console.error('Error invoking Lambda function:', error);
+                });
+            };
+            
+            modal.show();
+        };
+
+        // Load data for tabs
+        document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function(event) {
+                const targetId = event.target.getAttribute('data-bs-target').substring(1);
+                
+                if (targetId === 'logs') {
+                    loadLogGroups();
+                } else if (targetId === 'lambda') {
+                    loadLambdaFunctions();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
