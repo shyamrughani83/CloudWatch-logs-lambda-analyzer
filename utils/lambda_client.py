@@ -112,7 +112,7 @@ class LambdaClient:
     
     def invoke_function(self, 
                        function_name: str, 
-                       payload: Dict[str, Any] = None, 
+                       payload: Union[Dict[str, Any], str] = None, 
                        invocation_type: str = 'RequestResponse',
                        fetch_logs: bool = True) -> Dict[str, Any]:
         """
@@ -120,7 +120,7 @@ class LambdaClient:
         
         Args:
             function_name (str): Name or ARN of the Lambda function
-            payload (Dict[str, Any], optional): Payload to send to the function. Defaults to None.
+            payload (Union[Dict[str, Any], str], optional): Payload to send to the function. Defaults to None.
             invocation_type (str, optional): Invocation type (RequestResponse, Event, DryRun). Defaults to 'RequestResponse'.
             fetch_logs (bool, optional): Whether to fetch logs after invocation. Defaults to True.
             
@@ -132,8 +132,19 @@ class LambdaClient:
             return {'error': 'Lambda client not initialized'}
         
         try:
-            # Convert payload to JSON string
-            payload_json = json.dumps(payload) if payload else '{}'
+            # Convert payload to JSON string if it's a dictionary
+            if isinstance(payload, dict):
+                payload_json = json.dumps(payload)
+            elif isinstance(payload, str):
+                # Validate that the string is valid JSON
+                try:
+                    json.loads(payload)
+                    payload_json = payload
+                except json.JSONDecodeError:
+                    logger.error("Invalid JSON payload")
+                    return {'error': 'Invalid JSON payload'}
+            else:
+                payload_json = '{}'
             
             # Record start time for log fetching
             start_time = datetime.datetime.now() - datetime.timedelta(seconds=5)  # 5 seconds buffer

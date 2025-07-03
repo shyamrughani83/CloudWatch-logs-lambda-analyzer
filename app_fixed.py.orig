@@ -814,18 +814,11 @@ def render_main_interface():
         st.markdown('</div>', unsafe_allow_html=True)
     # Lambda Metrics tab
     with tab4:
-        st.markdown("<div class="tab-content">", unsafe_allow_html=True)
+        st.markdown('<div class="tab-content">', unsafe_allow_html=True)
         render_lambda_metrics(st.session_state.lambda_client)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Lambda Monitoring tab
-    with tab5:
-        st.markdown("<div class="tab-content">", unsafe_allow_html=True)
-        render_lambda_monitoring(st.session_state.lambda_client)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     
     # Settings tab
-    with tab6:
     with tab5:
         st.markdown('<div class="tab-content">', unsafe_allow_html=True)
         st.header("Settings")
@@ -1100,18 +1093,11 @@ def render_main_interface():
     
     # Lambda Metrics tab
     with tab4:
-        st.markdown("<div class="tab-content">", unsafe_allow_html=True)
+        st.markdown('<div class="tab-content">', unsafe_allow_html=True)
         render_lambda_metrics(st.session_state.lambda_client)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Lambda Monitoring tab
-    with tab5:
-        st.markdown("<div class="tab-content">", unsafe_allow_html=True)
-        render_lambda_monitoring(st.session_state.lambda_client)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     
     # Settings tab
-    with tab6:
     with tab5:
         st.markdown('<div class="tab-content">', unsafe_allow_html=True)
         st.header("Settings")
@@ -1214,7 +1200,7 @@ def render_main_interface():
     <div class='stcard'>
     """, unsafe_allow_html=True)
     
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📊 **Dashboard**", 
         "📚 **Log Groups**",
         "⚡ **Lambda Functions**",
@@ -1302,18 +1288,9 @@ def render_main_interface():
     
     # Lambda Metrics tab
     with tab4:
-        st.markdown("<div class="tab-content">", unsafe_allow_html=True)
         render_lambda_metrics(st.session_state.lambda_client)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Lambda Monitoring tab
-    with tab5:
-        st.markdown("<div class="tab-content">", unsafe_allow_html=True)
-        render_lambda_monitoring(st.session_state.lambda_client)
-        st.markdown("</div>", unsafe_allow_html=True)
     
     # Settings tab
-    with tab6:
     with tab5:
         st.header("Settings")
         
