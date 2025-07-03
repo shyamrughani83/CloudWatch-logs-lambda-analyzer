@@ -39,11 +39,6 @@
                         </a>
                     </li>
                     {% if session.get('aws_region') %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a>
-                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-map-marker-alt"></i> {{ session.get('aws_region') }}
@@ -94,7 +89,6 @@
                     <h5 class="text-white">Quick Links</h5>
                     <ul class="list-unstyled">
                         <li><a href="{{ url_for('main.index') }}" class="text-muted">Home</a></li>
-                        <li><a href="{{ url_for('main.dashboard') }}" class="text-muted">Dashboard</a></li>
                     </ul>
                 </div>
                 <div class="col-md-4">
@@ -107,7 +101,7 @@
                 </div>
             </div>
             <hr class="bg-light">
-            <p class="text-muted mb-0">&copy; 2025 CloudWatch Logs & Lambda Analyzer</p>
+            <p class="text-muted mb-0">&copy; 2025 CloudWatch Logs & Lambda Analyzer | Made by SR (Cloud Man)</p>
         </div>
     </footer>
 
